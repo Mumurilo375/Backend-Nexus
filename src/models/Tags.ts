@@ -1,12 +1,12 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
-class User extends Model {
+class Tags extends Model {
     public id!: number;
     public name!: string;
 }
 
-User.init(
+Tags.init(
     {
         id: {
             type: DataTypes.INTEGER,
@@ -14,14 +14,19 @@ User.init(
             primaryKey: true
         },
         name: {
-            type: DataTypes.STRING,
-            allowNull: false
+            type: DataTypes.STRING(50),
+            allowNull: false,
+            unique: true,
         },
     },
     {
         sequelize,
-        tableName: "user",
-    },
+        tableName: "tags",
+        timestamps: false,
+        indexes: [
+            { fields: ["name"] },
+        ],
+    }
 );
 
-export default User;
+export default Tags;

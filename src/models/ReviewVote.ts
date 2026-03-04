@@ -1,0 +1,46 @@
+import { DataTypes, Model } from "sequelize";
+import sequelize from "../config/database";
+
+class ReviewVote extends Model {
+    public id!: number;
+    public reviewId!: number;
+    public userId!: number;
+    public createdAt!: Date;
+}
+
+ReviewVote.init(
+    {
+        id: {
+            type: DataTypes.INTEGER,
+            autoIncrement: true,
+            primaryKey: true
+        },
+        reviewId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            field: "review_id",
+        },
+        userId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            field: "user_id",
+        },
+        createdAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+            field: "created_at",
+        },
+    },
+    {
+        sequelize,
+        tableName: "review_votes",
+        timestamps: false,
+        indexes: [
+            { unique: true, fields: ["review_id", "user_id"] },
+            { fields: ["review_id"] },
+            { fields: ["user_id"] },
+        ],
+    }
+);
+
+export default ReviewVote;
