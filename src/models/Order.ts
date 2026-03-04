@@ -11,6 +11,7 @@ class Order extends Model {
     public totalAmount!: number;
     public paymentMethod!: string;
     public createdAt!: Date;
+    public updatedAt!: Date;
 }
 
 Order.init(
@@ -60,11 +61,16 @@ Order.init(
             defaultValue: DataTypes.NOW,
             field: "created_at",
         },
+        updatedAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+            field: "updated_at",
+        },
     },
     {
         sequelize,
         tableName: "orders",
-        timestamps: false,
+        timestamps: true,
         indexes: [
             { fields: ["order_number"] },
             { fields: ["user_id"] },

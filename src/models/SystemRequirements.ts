@@ -10,6 +10,7 @@ class SystemRequirements extends Model {
 	public graphics!: string;
 	public storage!: string;
 	public createdAt!: Date;
+	public updatedAt!: Date;
 }
 
 SystemRequirements.init(
@@ -49,12 +50,17 @@ SystemRequirements.init(
 			type: DataTypes.DATE,
 			defaultValue: DataTypes.NOW,
 			field: "created_at",
+		},
+		updatedAt: {
+			type: DataTypes.DATE,
+			defaultValue: DataTypes.NOW,
+			field: "updated_at",
 		}
 	},
 	{
 		sequelize,
 		tableName: "system_requirements",
-		timestamps: false,
+		timestamps: true,
 		indexes: [
 			{ fields: ["game_id"] },
 		],

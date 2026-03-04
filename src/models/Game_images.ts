@@ -7,6 +7,7 @@ class GameImages extends Model {
 	public imageUrl!: string;
 	public sortOrder!: number;
 	public createdAt!: Date;
+	public updatedAt!: Date;
 }
 
 GameImages.init(
@@ -35,12 +36,17 @@ GameImages.init(
 			type: DataTypes.DATE,
 			defaultValue: DataTypes.NOW,
 			field: "created_at",
+		},
+		updatedAt: {
+			type: DataTypes.DATE,
+			defaultValue: DataTypes.NOW,
+			field: "updated_at",
 		}
 	},
 	{
 		sequelize,
 		tableName: "game_images",
-		timestamps: false,
+		timestamps: true,
 		indexes: [
 			{ fields: ["game_id"] },
 			{ fields: ["sort_order"] },

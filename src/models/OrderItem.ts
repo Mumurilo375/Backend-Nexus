@@ -7,6 +7,7 @@ class OrderItem extends Model {
     public gameId!: number;
     public price!: number;
     public createdAt!: Date;
+    public updatedAt!: Date;
 }
 
 OrderItem.init(
@@ -35,11 +36,16 @@ OrderItem.init(
             defaultValue: DataTypes.NOW,
             field: "created_at",
         },
+        updatedAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW,
+            field: "updated_at",
+        },
     },
     {
         sequelize,
         tableName: "order_items",
-        timestamps: false,
+        timestamps: true,
         indexes: [
             { fields: ["order_id"] },
             { fields: ["game_id"] },

@@ -10,6 +10,7 @@ class Users extends Model {
     public avatarUrl?: string;
     public isAdmin!: boolean;
     public createdAt!: Date;
+    public updatedAt!: Date;
     private passwordHash!: string;
 }
 
@@ -52,6 +53,10 @@ Users.init(
             defaultValue: false
         },
         createdAt: {
+            type: DataTypes.DATE,
+            defaultValue: DataTypes.NOW
+        },
+        updatedAt: {
             type: DataTypes.DATE,
             defaultValue: DataTypes.NOW
         }
