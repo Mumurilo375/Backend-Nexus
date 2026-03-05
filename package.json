@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/src/server.js",
     "db:migrate": "npx sequelize db:migrate",
-    "db:migrate:undo": "npx sequelize db:migrate:undo"
+    "db:migrate:undo": "npx sequelize db:migrate:undo",
+    "db:seed": "npx sequelize db:seed:all",
+    "db:seed:undo": "npx sequelize db:seed:undo"
   },
   "keywords": [],
   "author": "",
