@@ -19,11 +19,24 @@ const sequelize = new Sequelize(config.database, config.username, config.passwor
 
 const TABLES = [
   { name: 'users', title: 'Users' },
-  { name: 'categories', title: 'Categories' },
-  { name: 'tags', title: 'Tags' },
+  { name: 'platforms', title: 'Platforms' },
   { name: 'games', title: 'Games' },
+  { name: 'game_images', title: 'Game Images' },
+  { name: 'categories', title: 'Categories' },
+  { name: 'game_categories', title: 'Game Categories' },
+  { name: 'tags', title: 'Tags' },
+  { name: 'game_tags', title: 'Game Tags' },
+  { name: 'game_platform_listings', title: 'Game Platform Listings' },
+  { name: 'game_keys', title: 'Game Keys' },
+  { name: 'cart_items', title: 'Cart Items' },
+  { name: 'wishlists', title: 'Wishlists' },
+  { name: 'reviews', title: 'Reviews' },
+  { name: 'review_votes', title: 'Review Votes' },
   { name: 'orders', title: 'Orders' },
   { name: 'order_items', title: 'Order Items' },
+  { name: 'delivered_keys', title: 'Delivered Keys' },
+  { name: 'promotions', title: 'Promotions' },
+  { name: 'promotion_listings', title: 'Promotion Listings' },
 ];
 
 function escapeHtml(str) {
