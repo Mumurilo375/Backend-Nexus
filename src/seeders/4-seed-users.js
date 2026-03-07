@@ -6,7 +6,7 @@ module.exports = {
     const now = new Date();
     const passwordHash = '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi';
 
-    const users = [
+    const usersWithFixedIds = [
       { id: 1, username: 'admin', email: 'admin@nexus.com', password_hash: passwordHash, full_name: 'Administrador', cpf: '11111111111', is_admin: true, created_at: now, updated_at: now },
       { id: 2, username: 'usuario_teste', email: 'teste@nexus.com', password_hash: passwordHash, full_name: 'Usuário Teste', cpf: '22222222222', is_admin: false, created_at: now, updated_at: now },
       { id: 3, username: 'maria_silva', email: 'maria.silva@email.com', password_hash: passwordHash, full_name: 'Maria Silva', cpf: '33333333333', is_admin: false, created_at: now, updated_at: now },
@@ -17,7 +17,9 @@ module.exports = {
       { id: 8, username: 'lucas_ferreira', email: 'lucas.ferreira@email.com', password_hash: passwordHash, full_name: 'Lucas Ferreira', cpf: '88888888888', is_admin: false, created_at: now, updated_at: now },
       { id: 9, username: 'julia_rocha', email: 'julia.rocha@email.com', password_hash: passwordHash, full_name: 'Julia Rocha', cpf: '99999999999', is_admin: false, created_at: now, updated_at: now },
       { id: 10, username: 'rafael_alves', email: 'rafael.alves@email.com', password_hash: passwordHash, full_name: 'Rafael Alves', cpf: '10101010101', is_admin: false, created_at: now, updated_at: now },
-      // Demais usuários sem campo id, para auto-incremento
+    ];
+
+    const usersAutoIncrement = [
       { username: 'fernanda_souza', email: 'fernanda.souza@email.com', password_hash: passwordHash, full_name: 'Fernanda Souza', cpf: '12121212121', is_admin: false, created_at: now, updated_at: now },
       { username: 'bruno_carvalho', email: 'bruno.carvalho@email.com', password_hash: passwordHash, full_name: 'Bruno Carvalho', cpf: '13131313131', is_admin: false, created_at: now, updated_at: now },
       { username: 'patricia_gomes', email: 'patricia.gomes@email.com', password_hash: passwordHash, full_name: 'Patricia Gomes', cpf: '14141414141', is_admin: false, created_at: now, updated_at: now },
@@ -28,7 +30,14 @@ module.exports = {
       { username: 'moderador', email: 'mod@nexus.com', password_hash: passwordHash, full_name: 'Moderador Nexus', cpf: '19191919191', is_admin: true, created_at: now, updated_at: now },
     ];
 
-    await queryInterface.bulkInsert('users', users, {});
+    await queryInterface.bulkInsert('users', usersWithFixedIds, {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;"
+    );
+    await queryInterface.bulkInsert('users', usersAutoIncrement, {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;"
+    );
   },
 
   async down(queryInterface, Sequelize) {

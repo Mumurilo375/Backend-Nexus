@@ -22,8 +22,7 @@ module.exports = {
         discount_amount: discount,
         total_amount: total,
         payment_method: methods[i % methods.length],
-        created_at: now,
-        updated_at: now,
+        created_at: now
       });
     }
 

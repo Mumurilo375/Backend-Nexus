@@ -80,7 +80,7 @@ async function main() {
 `;
 
   for (const { name, title } of TABLES) {
-    const [rows] = await sequelize.query(`SELECT * FROM ${name} ORDER BY id`);
+    const [rows] = await sequelize.query(`SELECT * FROM ${name}`);
     const cols = rows.length ? Object.keys(rows[0]) : [];
     const headerRow = buildHtmlRow(cols, true);
     const dataRows = rows.map(r => buildHtmlRow(cols.map(c => r[c])));

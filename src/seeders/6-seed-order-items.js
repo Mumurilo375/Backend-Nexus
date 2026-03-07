@@ -5,15 +5,30 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();
 
+    const [orders] = await queryInterface.sequelize.query(
+      'SELECT id FROM orders ORDER BY id ASC LIMIT 10;'
+    );
+    const [listings] = await queryInterface.sequelize.query(
+      'SELECT id FROM game_platform_listings ORDER BY id ASC LIMIT 10;'
+    );
+
+    if (!orders.length || !listings.length) {
+      throw new Error('Seed order_items requer orders e game_platform_listings já populados.');
+    }
+
     const items = [];
 
-    // Cada pedido (1-45) recebe 1 a 3 itens com listagens variadas
-    for (let orderId = 1; orderId <= 45; orderId++) {
-      const numItems = 1 + (orderId % 3);
+    // Cada pedido recebe 1 a 3 itens com listagens variadas.
+    for (let i = 0; i < orders.length; i++) {
+      const orderId = orders[i].id;
+      const numItems = 1 + (i % 3);
       const usedListings = new Set();
+
       for (let j = 0; j < numItems; j++) {
-        let listingId = ((orderId + j * 11) % 40) + 1; // usa primeiras 40 listagens
-        if (usedListings.has(listingId)) listingId = (listingId % 40) + 1;
+        let listingId = listings[(i + j) % listings.length].id;
+        if (usedListings.has(listingId)) {
+          listingId = listings[(i + j + 1) % listings.length].id;
+        }
         usedListings.add(listingId);
 
         const price = 49.99 + (listingId % 20);

@@ -5,7 +5,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();
 
-    const games = [
+    const gamesWithFixedIds = [
       { id: 1, title: 'Jogo de Aventura Demo', description: 'Um jogo de aventura para testes.', long_description: 'Descrição longa do jogo de aventura. Ideal para testar a aplicação.', release_date: new Date('2024-01-15'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
       { id: 2, title: 'RPG Épico', description: 'RPG de fantasia para testes.', long_description: 'Explore um mundo de fantasia neste RPG de testes.', release_date: new Date('2024-03-01'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
       { id: 3, title: 'Corrida Extreme', description: 'Jogo de corrida para testes.', long_description: 'Corridas emocionantes em pistas variadas.', release_date: new Date('2023-11-20'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
@@ -16,7 +16,9 @@ module.exports = {
       { id: 8, title: 'Street Brawler', description: 'Lute nas ruas e desbloqueie golpes.', long_description: 'Jogo de luta 2D com diversos personagens e modos de jogo.', release_date: new Date('2024-01-20'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
       { id: 9, title: 'Puzzle Master', description: 'Resolva quebra-cabeças desafiadores.', long_description: 'Centenas de níveis de puzzle com mecânicas únicas e visuais minimalistas.', release_date: new Date('2023-12-01'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
       { id: 10, title: 'Kingdom Builder', description: 'Construa seu reino e defenda-o.', long_description: 'Estratégia em tempo real com construção de cidades e batalhas em massa.', release_date: new Date('2024-05-15'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
-      // Demais jogos sem campo id, para auto-incremento
+    ];
+
+    const gamesAutoIncrement = [
       { title: 'Neon Drift', description: 'Corrida futurista com visuais neon.', long_description: 'Arcade de corrida com trilha sonora eletrônica e pistas alucinantes.', release_date: new Date('2024-03-22'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
       { title: 'Mystery Mansion', description: 'Resolva o mistério da mansão abandonada.', long_description: 'Aventura point-and-click com múltiplos finais e personagens memoráveis.', release_date: new Date('2023-08-12'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
       { title: 'Titanfall Arena', description: 'Batalha em arenas com titãs.', long_description: 'FPS com mecânicas de mobilidade e mechas em partidas competitivas.', release_date: new Date('2024-06-01'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: true, created_at: now, updated_at: now },
@@ -38,7 +40,14 @@ module.exports = {
       { title: 'Legacy (inativo)', description: 'Jogo descontinuado para testes.', long_description: 'Usado apenas para testar listagem de jogos inativos.', release_date: new Date('2022-01-01'), cover_image_url: 'https://via.placeholder.com/460x215', is_active: false, created_at: now, updated_at: now },
     ];
 
-    await queryInterface.bulkInsert('games', games, {});
+    await queryInterface.bulkInsert('games', gamesWithFixedIds, {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('games', 'id'), COALESCE(MAX(id), 1)) FROM games;"
+    );
+    await queryInterface.bulkInsert('games', gamesAutoIncrement, {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('games', 'id'), COALESCE(MAX(id), 1)) FROM games;"
+    );
   },
 
   async down(queryInterface, Sequelize) {

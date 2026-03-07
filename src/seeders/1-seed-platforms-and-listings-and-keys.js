@@ -12,12 +12,15 @@ module.exports = {
       { id: 3, name: 'Xbox', slug: 'xbox', icon_url: null, is_active: true, created_at: now },
       { id: 4, name: 'Nintendo Switch', slug: 'nintendo-switch', icon_url: null, is_active: true, created_at: now },
     ], {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('platforms', 'id'), COALESCE(MAX(id), 1)) FROM platforms;"
+    );
 
     // Criar algumas listagens (game + plataforma) e keys simples
     const listings = [];
     const keys = [];
 
-    // Supondo que existem pelo menos 10 jogos (IDs 1..10) vindos do seeder 4-seed-games
+    // Supondo que existem pelo menos 10 jogos (IDs 1..10) vindos do seeder 0-seed-games
     // e 4 plataformas (IDs 1..4) deste seeder.
     let listingId = 1;
     let keyId = 1;
@@ -54,7 +57,13 @@ module.exports = {
 
     // Inserir listagens e keys com IDs fixos (para facilitar outros seeders)
     await queryInterface.bulkInsert('game_platform_listings', listings, {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('game_platform_listings', 'id'), COALESCE(MAX(id), 1)) FROM game_platform_listings;"
+    );
     await queryInterface.bulkInsert('game_keys', keys, {});
+    await queryInterface.sequelize.query(
+      "SELECT setval(pg_get_serial_sequence('game_keys', 'id'), COALESCE(MAX(id), 1)) FROM game_keys;"
+    );
   },
 
   async down(queryInterface, Sequelize) {
