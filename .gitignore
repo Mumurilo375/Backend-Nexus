@@ -1,3 +1,6 @@
 node_modules
+.env
+.env.*
+!.env.example
 relationships-view.html
 regras-negocio-visao-senior.md

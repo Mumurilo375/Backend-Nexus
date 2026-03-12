@@ -1,7 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import GamePlatformListing from "./GamePlatformListing";
-import PromotionListing from "./PromotionListing";
 
 class Promotion extends Model {
     public id!: number;
@@ -55,13 +53,11 @@ Promotion.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
         updatedAt: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "updated_at",
         },
     },
     {
@@ -77,14 +73,6 @@ Promotion.init(
         ],
     }
 );
-
-Promotion.belongsToMany(GamePlatformListing, {
-    through: "PromotionListings",
-    foreignKey: "promotion_id",
-    otherKey: "listing_id",
-    as: "listings",
-});
-Promotion.hasMany(PromotionListing, { foreignKey: "promotion_id", as: "promotionListings" });
 
 export default Promotion;
 

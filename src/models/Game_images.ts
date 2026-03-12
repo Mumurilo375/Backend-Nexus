@@ -1,6 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import Games from "./Games";
 
 class GameImages extends Model {
     public id!: number;
@@ -38,13 +37,11 @@ GameImages.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
         updatedAt: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "updated_at",
         },
     },
     {
@@ -59,8 +56,6 @@ GameImages.init(
         ],
     }
 );
-
-GameImages.belongsTo(Games, { foreignKey: "game_id", as: "game" });
 
 export default GameImages;
 

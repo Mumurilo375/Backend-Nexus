@@ -1,6 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import GamePlatformListing from "./GamePlatformListing";
 
 class Platform extends Model {
     public id!: number;
@@ -43,7 +42,6 @@ Platform.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
     },
     {
@@ -57,8 +55,6 @@ Platform.init(
         ],
     }
 );
-
-Platform.hasMany(GamePlatformListing, { foreignKey: "platform_id", as: "gameListings" });
 
 export default Platform;
 

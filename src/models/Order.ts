@@ -1,7 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import Users from "./Users";
-import OrderItem from "./OrderItem";
 
 class Order extends Model {
     public id!: number;
@@ -62,7 +60,6 @@ Order.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
     },
     {
@@ -77,9 +74,6 @@ Order.init(
         ],
     }
 );
-
-Order.belongsTo(Users, { foreignKey: "user_id", as: "user" });
-Order.hasMany(OrderItem, { foreignKey: "order_id", as: "items" });
 
 export default Order;
 

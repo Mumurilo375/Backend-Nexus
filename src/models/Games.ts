@@ -1,11 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import GameImages from "./Game_images";
-import Review from "./Review";
-import Wishlist from "./Wishlist";
-import GamePlatformListing from "./GamePlatformListing";
-import Categories from "./Category";
-import Tags from "./Tags";
 
 class Games extends Model {
     public id!: number;
@@ -59,13 +53,11 @@ Games.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
         updatedAt: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "updated_at",
         },
     },
     {
@@ -81,14 +73,6 @@ Games.init(
         ],
     }
 );
-
-Games.hasMany(GameImages, { foreignKey: "game_id", as: "images" });
-Games.hasMany(Review, { foreignKey: "game_id", as: "reviews" });
-Games.hasMany(Wishlist, { foreignKey: "game_id", as: "wishlists" });
-Games.hasMany(GamePlatformListing, { foreignKey: "game_id", as: "platformListings" });
-Games.belongsToMany(Categories, { through: "GameCategory", foreignKey: "game_id", as: "categories" });
-Games.belongsToMany(Tags, { through: "GameTag", foreignKey: "game_id", as: "tags" });
-
 
 export default Games;
 

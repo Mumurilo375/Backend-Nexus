@@ -1,7 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import Review from "./Review";
-import Users from "./Users";
 
 class ReviewVote extends Model {
     public id!: number;
@@ -31,7 +29,6 @@ ReviewVote.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
     },
     {
@@ -45,9 +42,6 @@ ReviewVote.init(
         ],
     }
 );
-
-ReviewVote.belongsTo(Review, { foreignKey: "review_id", as: "review" });
-ReviewVote.belongsTo(Users, { foreignKey: "user_id", as: "user" });
 
 export default ReviewVote;
 

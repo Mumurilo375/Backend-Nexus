@@ -1,7 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import Users from "./Users";
-import GamePlatformListing from "./GamePlatformListing";
 
 class CartItem extends Model {
     public id!: number;
@@ -44,9 +42,6 @@ CartItem.init(
         ],
     }
 );
-
-CartItem.belongsTo(Users, { foreignKey: "user_id", as: "user" });
-CartItem.belongsTo(GamePlatformListing, { foreignKey: "listing_id", as: "listing" });
 
 export default CartItem;
 

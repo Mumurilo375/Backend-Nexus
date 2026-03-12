@@ -1,11 +1,5 @@
-import { BelongsTo, DataTypes, Model } from "sequelize";
+import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import Games from "./Games";
-import Platform from "./Platform";
-import GameKey from "./GameKey";
-import CartItem from "./CartItem";
-import OrderItem from "./OrderItem";
-import Promotion from "./Promotion";
 
 class GamePlatformListing extends Model {
     public id!: number;
@@ -48,13 +42,11 @@ GamePlatformListing.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "created_at",
         },
         updatedAt: {
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
-            field: "updated_at",
         },
     },
     {
@@ -71,14 +63,6 @@ GamePlatformListing.init(
         ],
     }
 );
-
-GamePlatformListing.belongsTo(Games, { foreignKey: "game_id", as: "game" });
-GamePlatformListing.belongsTo(Platform, { foreignKey: "platform_id", as: "platform" });
-GamePlatformListing.hasMany(GameKey, { foreignKey: "listing_id", as: "gameKeys" });
-GamePlatformListing.hasMany(CartItem, { foreignKey: "listing_id", as: "cartItems" });
-GamePlatformListing.hasMany(OrderItem, { foreignKey: "listing_id", as: "orderItems" });
-GamePlatformListing.belongsToMany(Promotion, { through: "PromotionListings", foreignKey: "listing_id", as: "promotions" });
-
 
 export default GamePlatformListing;
 

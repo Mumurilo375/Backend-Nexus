@@ -1,7 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
-import Games from "./Games";
-import GameCategory from "./GameCategory";
 
 class Categories extends Model {
     public id!: number;
@@ -30,8 +28,5 @@ Categories.init(
         ],
     }
 );
-
-Categories.belongsToMany(Games, { through: "GameCategory", foreignKey: "category_id", as: "games" });
-Categories.hasMany(GameCategory, { foreignKey: "category_id", as: "gameCategories" }); // para acessar os registros da tabela de junção diretamente, se necessário
 
 export default Categories;
