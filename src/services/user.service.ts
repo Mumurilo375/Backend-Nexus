@@ -1,34 +1,93 @@
 import { Op } from "sequelize";
-import User from "../models/Users";
+import Users from "../models/Users";
 import { AppError } from "../utils/app-error";
 import { hashPassword } from "../utils/password";
-import { CreateUserInput, ListUsersQuery } from "../validators/user.validator";
+import { CreateUserInput, ListUsersQuery, UpdateUserInput } from "../validators/user.validator";
+
+// ── Helpers ─────────────────────────────────────────────────
+
+const PUBLIC_ATTRS = { exclude: ["passwordHash"] };
+
+async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
+  const existing = await Users.findOne({
+    where: {
+      [Op.or]: [
+        { email: input.email },
+        { username: input.username },
+        { cpf: input.cpf },
+      ],
+    },
+  });
+
+  if (!existing) return;
+
+  if (existing.email === input.email) {
+    throw new AppError(409, "USER_ALREADY_EXISTS", "Email is already in use");
+  }
+  if (existing.username === input.username) {
+    throw new AppError(409, "USER_ALREADY_EXISTS", "Username is already in use");
+  }
+  throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
+}
+
+async function checkDuplicateOnUpdate(userId: number, input: UpdateUserInput): Promise<void> {
+  const conditions = [];
+
+  if (input.username) conditions.push({ username: input.username });
+  if (input.cpf) conditions.push({ cpf: input.cpf });
+  if (conditions.length === 0) return;
+
+  const existing = await Users.findOne({
+    where: { id: { [Op.ne]: userId }, [Op.or]: conditions },
+  });
+
+  if (!existing) return;
+
+  if (input.username && existing.username === input.username) {
+    throw new AppError(409, "USER_ALREADY_EXISTS", "Username is already in use");
+  }
+  throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
+}
+
+function ensureOwner(targetId: number, authId: number): void {
+  if (targetId !== authId) {
+    throw new AppError(403, "FORBIDDEN", "You can only manage your own account");
+  }
+}
+
+async function findUserOrFail(id: number): Promise<Users> {
+  const user = await Users.findByPk(id);
+  if (!user) {
+    throw new AppError(404, "USER_NOT_FOUND", "User not found");
+  }
+  return user;
+}
+
+// ── Services ────────────────────────────────────────────────
 
 export async function listUsers(query: ListUsersQuery) {
-  const pular = (query.page - 1) * query.limit;
+  const offset = (query.page - 1) * query.limit;
 
-  const resultado = await User.findAndCountAll({
-    attributes: { exclude: ["passwordHash"] },
+  const result = await Users.findAndCountAll({
+    attributes: PUBLIC_ATTRS,
     limit: query.limit,
-    offset: pular,
+    offset,
     order: [["createdAt", "DESC"]],
   });
 
   return {
-    items: resultado.rows,
+    items: result.rows,
     meta: {
       page: query.page,
       limit: query.limit,
-      total: resultado.count,
-      totalPages: Math.ceil(resultado.count / query.limit),
+      total: result.count,
+      totalPages: Math.ceil(result.count / query.limit),
     },
   };
 }
 
 export async function getUserById(id: number) {
-  const user = await User.findByPk(id, {
-    attributes: { exclude: ["passwordHash"] },
-  });
+  const user = await Users.findByPk(id, { attributes: PUBLIC_ATTRS });
 
   if (!user) {
     throw new AppError(404, "USER_NOT_FOUND", "User not found");
@@ -38,24 +97,41 @@ export async function getUserById(id: number) {
 }
 
 export async function createUser(input: CreateUserInput) {
-  const jaExiste = await User.findOne({
-    where: {
-      [Op.or]: [{ email: input.email }, { username: input.username }],
-    },
-  });
+  await checkDuplicateOnCreate(input);
 
-  if (jaExiste) {
-    throw new AppError(409, "USER_ALREADY_EXISTS", "Email or username is already in use");
-  }
-
-  const novoUsuario = await User.create({
+  const user = await Users.create({
     email: input.email,
     username: input.username,
     passwordHash: hashPassword(input.password),
-    fullName: input.fullName ?? null,
-    cpf: input.cpf ?? null,
+    fullName: input.fullName,
+    cpf: input.cpf,
     avatarUrl: input.avatarUrl ?? null,
   });
 
-  return novoUsuario;
+  const { passwordHash, ...userData } = user.toJSON();
+  return userData;
+}
+
+export async function updateUser(targetId: number, authId: number, input: UpdateUserInput) {
+  ensureOwner(targetId, authId);
+  const user = await findUserOrFail(targetId);
+
+  await checkDuplicateOnUpdate(targetId, input);
+
+  const fields: Record<string, unknown> = { ...input };
+  if (input.password) {
+    fields.passwordHash = hashPassword(input.password);
+    delete fields.password;
+  }
+
+  await user.update(fields);
+
+  const { passwordHash, ...userData } = user.toJSON();
+  return userData;
+}
+
+export async function deleteUser(targetId: number, authId: number) {
+  ensureOwner(targetId, authId);
+  const user = await findUserOrFail(targetId);
+  await user.destroy();
 }

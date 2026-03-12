@@ -1,11 +1,21 @@
 import { AppError } from "../utils/app-error";
 
+// ── Interfaces ──────────────────────────────────────────────
+
 export interface CreateUserInput {
   email: string;
   username: string;
   password: string;
-  fullName?: string | null;
-  cpf?: string | null;
+  fullName: string;
+  cpf: string;
+  avatarUrl?: string | null;
+}
+
+export interface UpdateUserInput {
+  username?: string;
+  password?: string;
+  fullName?: string;
+  cpf?: string;
   avatarUrl?: string | null;
 }
 
@@ -14,40 +24,142 @@ export interface ListUsersQuery {
   limit: number;
 }
 
+// ── Helpers ─────────────────────────────────────────────────
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateCreateUserInput(body: any): CreateUserInput {
+function requireString(value: unknown, field: string): string {
+  const str = String(value ?? "").trim();
+  if (!str) {
+    throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
+  }
+  return str;
+}
+
+function validateEmail(email: string): string {
+  const clean = email.toLowerCase();
+  if (!EMAIL_REGEX.test(clean)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Invalid email format");
+  }
+  return clean;
+}
+
+function validateCpf(raw: string): string {
+  const cpf = raw.replace(/\D/g, "");
+
+  if (cpf.length !== 11) {
+    throw new AppError(400, "VALIDATION_ERROR", "CPF must have 11 digits");
+  }
+
+  if (/^(\d)\1{10}$/.test(cpf)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Invalid CPF");
+  }
+
+  for (let t = 9; t <= 10; t++) {
+    let sum = 0;
+    for (let i = 0; i < t; i++) {
+      sum += Number(cpf[i]) * (t + 1 - i);
+    }
+    const digit = ((sum * 10) % 11) % 10;
+    if (Number(cpf[t]) !== digit) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid CPF");
+    }
+  }
+
+  return cpf;
+}
+
+function validatePasswordStrength(password: string): void {
+  if (password.length < 8) {
+    throw new AppError(400, "VALIDATION_ERROR", "Password must have at least 8 characters");
+  }
+  if (!/[a-z]/.test(password)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Password must have a lowercase letter");
+  }
+  if (!/[A-Z]/.test(password)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Password must have an uppercase letter");
+  }
+  if (!/\d/.test(password)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Password must have a number");
+  }
+  if (!/[^a-zA-Z0-9]/.test(password)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Password must have a special character");
+  }
+}
+
+// ── Validators ──────────────────────────────────────────────
+
+export function validateCreateUserInput(body: Record<string, unknown>): CreateUserInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
-  const email = body.email?.trim().toLowerCase() || "";
-  const username = body.username?.trim() || "";
-  const password = body.password || "";
-
-  if (!EMAIL_REGEX.test(email)) {
-    throw new AppError(400, "VALIDATION_ERROR", "Invalid email format");
-  }
+  const email = validateEmail(requireString(body.email, "email"));
+  const username = requireString(body.username, "username");
+  const password = requireString(body.password, "password");
+  const fullName = requireString(body.fullName, "fullName");
+  const cpf = validateCpf(requireString(body.cpf, "cpf"));
 
   if (username.length < 3 || username.length > 50) {
     throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
   }
 
-  if (password.length < 8) {
-    throw new AppError(400, "VALIDATION_ERROR", "password must have at least 8 characters");
-  }
+  validatePasswordStrength(password);
 
   return {
     email,
     username,
     password,
-    fullName: body.fullName || null,
-    cpf: body.cpf || null,
-    avatarUrl: body.avatarUrl || null,
+    fullName,
+    cpf,
+    avatarUrl: body.avatarUrl ? String(body.avatarUrl) : null,
   };
 }
 
-export function validateListUsersQuery(query: any): ListUsersQuery {
+export function validateUpdateUserInput(body: Record<string, unknown>): UpdateUserInput {
+  if (!body || typeof body !== "object") {
+    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+  }
+
+  if ("email" in body) {
+    throw new AppError(400, "VALIDATION_ERROR", "Email cannot be changed");
+  }
+
+  const result: UpdateUserInput = {};
+
+  if (body.username !== undefined) {
+    result.username = requireString(body.username, "username");
+    if (result.username.length < 3 || result.username.length > 50) {
+      throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
+    }
+  }
+
+  if (body.password !== undefined) {
+    result.password = requireString(body.password, "password");
+    validatePasswordStrength(result.password);
+  }
+
+  if (body.fullName !== undefined) {
+    result.fullName = requireString(body.fullName, "fullName");
+  }
+
+  if (body.cpf !== undefined) {
+    result.cpf = validateCpf(requireString(body.cpf, "cpf"));
+  }
+
+  if (body.avatarUrl !== undefined) {
+    result.avatarUrl = body.avatarUrl ? String(body.avatarUrl) : null;
+  }
+
+  const hasChanges = Object.keys(result).length > 0;
+  if (!hasChanges) {
+    throw new AppError(400, "VALIDATION_ERROR", "At least one field must be provided");
+  }
+
+  return result;
+}
+
+export function validateListUsersQuery(query: Record<string, unknown>): ListUsersQuery {
   const page = Number(query?.page) || 1;
   const limit = Number(query?.limit) || 20;
 
