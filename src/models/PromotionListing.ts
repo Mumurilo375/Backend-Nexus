@@ -2,9 +2,9 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class PromotionListing extends Model {
-    public id!: number;
-    public promotionId!: number;
-    public listingId!: number;
+    declare id: number;
+    declare promotionId: number;
+    declare listingId: number;
 }
 
 PromotionListing.init(

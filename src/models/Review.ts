@@ -2,13 +2,13 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Review extends Model {
-    public id!: number;
-    public gameId!: number;
-    public userId!: number;
-    public rating!: number;
-    public comment!: string;
-    public createdAt!: Date;
-    public updatedAt!: Date;
+    declare id: number;
+    declare gameId: number;
+    declare userId: number;
+    declare rating: number;
+    declare comment: string;
+    declare createdAt: Date;
+    declare updatedAt: Date;
 }
 
 Review.init(

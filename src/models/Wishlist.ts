@@ -2,10 +2,10 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Wishlist extends Model {
-    public id!: number;
-    public userId!: number;
-    public gameId!: number;
-    public addedAt!: Date;
+    declare id: number;
+    declare userId: number;
+    declare gameId: number;
+    declare addedAt: Date;
 }
 
 Wishlist.init(

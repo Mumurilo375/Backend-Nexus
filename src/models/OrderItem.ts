@@ -2,12 +2,12 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class OrderItem extends Model {
-    public id!: number;
-    public orderId!: number;
-    public listingId!: number;
-    public gameKeyId!: number | null;
-    public price!: number;
-    public createdAt!: Date;
+    declare id: number;
+    declare orderId: number;
+    declare listingId: number;
+    declare gameKeyId: number | null;
+    declare price: number;
+    declare createdAt: Date;
 }
 
 OrderItem.init(

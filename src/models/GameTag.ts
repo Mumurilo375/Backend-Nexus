@@ -2,8 +2,8 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class GameTag extends Model {
-    public gameId!: number;
-    public tagId!: number;
+    declare gameId: number;
+    declare tagId: number;
 }
 
 GameTag.init(

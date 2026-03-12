@@ -2,11 +2,11 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class DeliveredKey extends Model {
-    public id!: number;
-    public userId!: number;
-    public orderItemId!: number;
-    public gameKeyId!: number;
-    public deliveredAt!: Date;
+    declare id: number;
+    declare userId: number;
+    declare orderItemId: number;
+    declare gameKeyId: number;
+    declare deliveredAt: Date;
 }
 
 DeliveredKey.init(

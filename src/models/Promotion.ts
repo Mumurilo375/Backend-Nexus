@@ -2,15 +2,15 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Promotion extends Model {
-    public id!: number;
-    public name!: string;
-    public description!: string | null;
-    public discountPercentage!: number;
-    public startDate!: Date;
-    public endDate!: Date;
-    public isActive!: boolean;
-    public createdAt!: Date;
-    public updatedAt!: Date;
+    declare id: number;
+    declare name: string;
+    declare description: string | null;
+    declare discountPercentage: number;
+    declare startDate: Date;
+    declare endDate: Date;
+    declare isActive: boolean;
+    declare createdAt: Date;
+    declare updatedAt: Date;
 }
 
 Promotion.init(

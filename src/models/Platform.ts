@@ -2,12 +2,12 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Platform extends Model {
-    public id!: number;
-    public name!: string;
-    public slug!: string;
-    public iconUrl!: string | null;
-    public isActive!: boolean;
-    public createdAt!: Date;
+    declare id: number;
+    declare name: string;
+    declare slug: string;
+    declare iconUrl: string | null;
+    declare isActive: boolean;
+    declare createdAt: Date;
 }
 
 Platform.init(

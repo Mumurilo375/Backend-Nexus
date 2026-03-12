@@ -2,16 +2,16 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Users extends Model {
-    public id!: number;
-    public email!: string;
-    public username!: string;
-    public fullName!: string | null;
-    public cpf!: string | null;
-    public avatarUrl!: string | null;
-    public isAdmin!: boolean;
-    public createdAt!: Date;
-    public updatedAt!: Date;
-    public passwordHash!: string;
+    declare id: number;
+    declare email: string;
+    declare username: string;
+    declare fullName: string | null;
+    declare cpf: string | null;
+    declare avatarUrl: string | null;
+    declare isAdmin: boolean;
+    declare createdAt: Date;
+    declare updatedAt: Date;
+    declare passwordHash: string;
 }
 
 Users.init(

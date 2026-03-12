@@ -2,10 +2,10 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class CartItem extends Model {
-    public id!: number;
-    public userId!: number;
-    public listingId!: number;
-    public addedAt!: Date;
+    declare id: number;
+    declare userId: number;
+    declare listingId: number;
+    declare addedAt: Date;
 }
 
 CartItem.init(

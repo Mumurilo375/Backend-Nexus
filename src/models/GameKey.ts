@@ -2,13 +2,13 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class GameKey extends Model {
-    public id!: number;
-    public listingId!: number;
-    public keyValue!: string;
-    public status!: string;
-    public reservedAt!: Date | null;
-    public soldAt!: Date | null;
-    public createdAt!: Date;
+    declare id: number;
+    declare listingId: number;
+    declare keyValue: string;
+    declare status: string;
+    declare reservedAt: Date | null;
+    declare soldAt: Date | null;
+    declare createdAt: Date;
 }
 
 GameKey.init(

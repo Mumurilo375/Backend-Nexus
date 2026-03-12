@@ -2,13 +2,13 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class GamePlatformListing extends Model {
-    public id!: number;
-    public gameId!: number;
-    public platformId!: number;
-    public price!: number;
-    public isActive!: boolean;
-    public createdAt!: Date;
-    public updatedAt!: Date;
+    declare id: number;
+    declare gameId: number;
+    declare platformId: number;
+    declare price: number;
+    declare isActive: boolean;
+    declare createdAt: Date;
+    declare updatedAt: Date;
 }
 
 GamePlatformListing.init(

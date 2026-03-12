@@ -2,12 +2,12 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class GameImages extends Model {
-    public id!: number;
-    public gameId!: number;
-    public imageUrl!: string;
-    public sortOrder!: number;
-    public createdAt!: Date;
-    public updatedAt!: Date;
+    declare id: number;
+    declare gameId: number;
+    declare imageUrl: string;
+    declare sortOrder: number;
+    declare createdAt: Date;
+    declare updatedAt: Date;
 }
 
 GameImages.init(

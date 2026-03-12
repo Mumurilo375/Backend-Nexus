@@ -2,15 +2,15 @@ import { DataTypes, Model } from "sequelize";
 import sequelize from "../config/database";
 
 class Order extends Model {
-    public id!: number;
-    public orderNumber!: string;
-    public userId!: number;
-    public status!: string;
-    public subtotal!: number;
-    public discountAmount!: number;
-    public totalAmount!: number;
-    public paymentMethod!: string;
-    public createdAt!: Date;
+    declare id: number;
+    declare orderNumber: string;
+    declare userId: number;
+    declare status: string;
+    declare subtotal: number;
+    declare discountAmount: number;
+    declare totalAmount: number;
+    declare paymentMethod: string;
+    declare createdAt: Date;
 }
 
 Order.init(
