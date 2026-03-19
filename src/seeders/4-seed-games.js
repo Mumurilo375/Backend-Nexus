@@ -42,6 +42,11 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
+    await queryInterface.bulkDelete('game_keys', null, {});
+    await queryInterface.bulkDelete('game_platform_listings', null, {});
+    await queryInterface.bulkDelete('game_tags', null, {});
+    await queryInterface.bulkDelete('game_categories', null, {});
+    await queryInterface.bulkDelete('game_images', null, {});
     await queryInterface.bulkDelete('games', null, {});
   }
 };

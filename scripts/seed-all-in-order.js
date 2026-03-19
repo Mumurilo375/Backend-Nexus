@@ -7,6 +7,7 @@ const seeders = [
   'src/seeders/0-seed-games.js',
   'src/seeders/1-seed-platforms-and-listings-and-keys.js',
   'src/seeders/2-seed-categories.js',
+  'src/seeders/7-seed-game-categories.js',
   'src/seeders/3-seed-tags.js',
   'src/seeders/4-seed-users.js',
   'src/seeders/5-seed-orders.js',
