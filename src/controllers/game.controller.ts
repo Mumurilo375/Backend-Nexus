@@ -8,21 +8,21 @@ import {
 } from "../validators/game.validator";
 
 class GameController {
-  static async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = validateListGamesQuery(req.query as Record<string, unknown>);
-      const result = await listGames(query);
-      res.status(200).json(result);
+      const paginationFilters = validateListGamesQuery(req.query);
+      const gamesPage = await listGames(paginationFilters);
+      res.status(200).json(gamesPage);
     } catch (error) {
       next(error);
     }
   }
 
-  static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async get(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const result = await getGameById(id);
-      res.status(200).json(result);
+      const gameId = validateIdParam(req.params.id as string);
+      const game = await getGameById(gameId);
+      res.status(200).json(game);
     } catch (error) {
       next(error);
     }
@@ -30,9 +30,9 @@ class GameController {
 
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const payload = validateCreateGameInput(req.body as Record<string, unknown>);
-      const result = await createGame(payload);
-      res.status(201).json(result);
+      const newGameData = validateCreateGameInput(req.body);
+      const createdGame = await createGame(newGameData);
+      res.status(201).json(createdGame);
     } catch (error) {
       next(error);
     }
@@ -40,19 +40,19 @@ class GameController {
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const payload = validateUpdateGameInput(req.body as Record<string, unknown>);
-      const result = await updateGame(id, payload);
-      res.status(200).json(result);
+      const gameId = validateIdParam(req.params.id as string);
+      const updatedGameData = validateUpdateGameInput(req.body);
+      const updatedGame = await updateGame(gameId, updatedGameData);
+      res.status(200).json(updatedGame);
     } catch (error) {
       next(error);
     }
   }
 
-  static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      await deleteGame(id);
+      const gameId = validateIdParam(req.params.id as string);
+      await deleteGame(gameId);
       res.status(204).send();
     } catch (error) {
       next(error);

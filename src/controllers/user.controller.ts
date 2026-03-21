@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { createUser, deleteUser, getUserById, listUsers, updateUser } from "../services/user.service";
+import { AppError } from "../utils/app-error";
 import {
   validateCreateUserInput,
   validateIdParam,
@@ -7,22 +8,31 @@ import {
   validateUpdateUserInput,
 } from "../validators/user.validator";
 
+function getAuthenticatedUserId(req: Request): number {
+  if (!req.user) {
+    throw new AppError(401, "UNAUTHORIZED", "User not authenticated");
+  }
+
+  return req.user.id;
+}
+
 class UserController {
-  static async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = validateListUsersQuery(req.query as Record<string, unknown>);
-      const result = await listUsers(query);
-      res.status(200).json(result);
+      // req.query sao os parametros opcionais da URL, por exemplo: ?page=2&limit=10
+      const paginationFilters = validateListUsersQuery(req.query);
+      const usersPage = await listUsers(paginationFilters);
+      res.status(200).json(usersPage);
     } catch (error) {
       next(error);
     }
   }
 
-  static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async get(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const result = await getUserById(id);
-      res.status(200).json(result);
+      const userId = validateIdParam(req.params.id as string);
+      const user = await getUserById(userId);
+      res.status(200).json(user);
     } catch (error) {
       next(error);
     }
@@ -30,9 +40,9 @@ class UserController {
 
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const payload = validateCreateUserInput(req.body as Record<string, unknown>);
-      const result = await createUser(payload);
-      res.status(201).json(result);
+      const newUserData = validateCreateUserInput(req.body);
+      const createdUser = await createUser(newUserData);
+      res.status(201).json(createdUser);
     } catch (error) {
       next(error);
     }
@@ -40,19 +50,23 @@ class UserController {
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const payload = validateUpdateUserInput(req.body as Record<string, unknown>);
-      const result = await updateUser(id, req.user!.id, payload);
-      res.status(200).json(result);
+      const targetUserId = validateIdParam(req.params.id as string);
+      const updatedUserData = validateUpdateUserInput(req.body);
+      const authenticatedUserId = getAuthenticatedUserId(req);
+
+      const updatedUser = await updateUser(targetUserId, authenticatedUserId, updatedUserData);
+      res.status(200).json(updatedUser);
     } catch (error) {
       next(error);
     }
   }
 
-  static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      await deleteUser(id, req.user!.id);
+      const targetUserId = validateIdParam(req.params.id as string);
+      const authenticatedUserId = getAuthenticatedUserId(req);
+
+      await deleteUser(targetUserId, authenticatedUserId);
       res.status(204).send();
     } catch (error) {
       next(error);

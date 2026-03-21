@@ -8,21 +8,21 @@ import {
 } from "../validators/category.validator";
 
 class CategoryController {
-  static async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = validateListCategoriesQuery(req.query as Record<string, unknown>);
-      const result = await listCategories(query);
-      res.status(200).json(result);
+      const paginationFilters = validateListCategoriesQuery(req.query);
+      const categoriesPage = await listCategories(paginationFilters);
+      res.status(200).json(categoriesPage);
     } catch (error) {
       next(error);
     }
   }
 
-  static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async get(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const result = await getCategoryById(id);
-      res.status(200).json(result);
+      const categoryId = validateIdParam(req.params.id as string);
+      const category = await getCategoryById(categoryId);
+      res.status(200).json(category);
     } catch (error) {
       next(error);
     }
@@ -30,9 +30,9 @@ class CategoryController {
 
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const payload = validateCreateCategoryInput(req.body as Record<string, unknown>);
-      const result = await createCategory(payload);
-      res.status(201).json(result);
+      const newCategoryData = validateCreateCategoryInput(req.body);
+      const createdCategory = await createCategory(newCategoryData);
+      res.status(201).json(createdCategory);
     } catch (error) {
       next(error);
     }
@@ -40,19 +40,19 @@ class CategoryController {
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const payload = validateUpdateCategoryInput(req.body as Record<string, unknown>);
-      const result = await updateCategory(id, payload);
-      res.status(200).json(result);
+      const categoryId = validateIdParam(req.params.id as string);
+      const updatedCategoryData = validateUpdateCategoryInput(req.body);
+      const updatedCategory = await updateCategory(categoryId, updatedCategoryData);
+      res.status(200).json(updatedCategory);
     } catch (error) {
       next(error);
     }
   }
 
-  static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      await deleteCategory(id);
+      const categoryId = validateIdParam(req.params.id as string);
+      await deleteCategory(categoryId);
       res.status(204).send();
     } catch (error) {
       next(error);

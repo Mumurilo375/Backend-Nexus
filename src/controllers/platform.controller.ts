@@ -8,21 +8,21 @@ import {
 } from "../validators/platform.validator";
 
 class PlatformController {
-  static async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = validateListPlatformsQuery(req.query as Record<string, unknown>);
-      const result = await listPlatforms(query);
-      res.status(200).json(result);
+      const paginationFilters = validateListPlatformsQuery(req.query);
+      const platformsPage = await listPlatforms(paginationFilters);
+      res.status(200).json(platformsPage);
     } catch (error) {
       next(error);
     }
   }
 
-  static async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async get(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const result = await getPlatformById(id);
-      res.status(200).json(result);
+      const platformId = validateIdParam(req.params.id as string);
+      const platform = await getPlatformById(platformId);
+      res.status(200).json(platform);
     } catch (error) {
       next(error);
     }
@@ -30,9 +30,9 @@ class PlatformController {
 
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const payload = validateCreatePlatformInput(req.body as Record<string, unknown>);
-      const result = await createPlatform(payload);
-      res.status(201).json(result);
+      const newPlatformData = validateCreatePlatformInput(req.body);
+      const createdPlatform = await createPlatform(newPlatformData);
+      res.status(201).json(createdPlatform);
     } catch (error) {
       next(error);
     }
@@ -40,19 +40,19 @@ class PlatformController {
 
   static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      const payload = validateUpdatePlatformInput(req.body as Record<string, unknown>);
-      const result = await updatePlatform(id, payload);
-      res.status(200).json(result);
+      const platformId = validateIdParam(req.params.id as string);
+      const updatedPlatformData = validateUpdatePlatformInput(req.body);
+      const updatedPlatform = await updatePlatform(platformId, updatedPlatformData);
+      res.status(200).json(updatedPlatform);
     } catch (error) {
       next(error);
     }
   }
 
-  static async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const id = validateIdParam(req.params.id as string);
-      await deletePlatform(id);
+      const platformId = validateIdParam(req.params.id as string);
+      await deletePlatform(platformId);
       res.status(204).send();
     } catch (error) {
       next(error);

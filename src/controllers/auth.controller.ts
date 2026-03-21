@@ -5,9 +5,9 @@ import { validateLoginInput } from "../validators/auth.validator";
 class AuthController {
   static async login(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const input = validateLoginInput(req.body as Record<string, unknown>);
-      const result = await loginUser(input);
-      res.status(200).json(result);
+      const loginData = validateLoginInput(req.body);
+      const loginResult = await loginUser(loginData);
+      res.status(200).json(loginResult);
     } catch (error) {
       next(error);
     }
