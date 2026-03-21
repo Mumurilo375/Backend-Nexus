@@ -4,10 +4,13 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const gamesRouter = Router();
 
-gamesRouter.get("/", GameController.findAll);
+// Publico: catalogo de jogos pode ser consultado sem token.
+gamesRouter.get("/", GameController.list);
+gamesRouter.get("/:id", GameController.get);
+
+// Protegido: manutencao de jogos exige autenticacao.
 gamesRouter.post("/", authMiddleware, GameController.create);
-gamesRouter.get("/:id", GameController.getById);
 gamesRouter.put("/:id", authMiddleware, GameController.update);
-gamesRouter.delete("/:id", authMiddleware, GameController.delete);
+gamesRouter.delete("/:id", authMiddleware, GameController.remove);
 
 export default gamesRouter;

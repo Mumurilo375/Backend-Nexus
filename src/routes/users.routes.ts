@@ -4,10 +4,15 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const usersRouter = Router();
 
-usersRouter.get("/", UserController.findAll);
+// Publico: listagem e cadastro podem ser acessados sem token.
+usersRouter.get("/", UserController.list);
 usersRouter.post("/", UserController.create);
-usersRouter.get("/:id", UserController.getById);
+
+// Publico: consulta de perfil por id.
+usersRouter.get("/:id", UserController.get);
+
+// Protegido: apenas usuario autenticado pode atualizar/remover conta.
 usersRouter.put("/:id", authMiddleware, UserController.update);
-usersRouter.delete("/:id", authMiddleware, UserController.delete);
+usersRouter.delete("/:id", authMiddleware, UserController.remove);
 
 export default usersRouter;
