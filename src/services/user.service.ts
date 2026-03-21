@@ -6,7 +6,8 @@ import { CreateUserInput, ListUsersQuery, UpdateUserInput } from "../validators/
 
 // ── Helpers ─────────────────────────────────────────────────
 
-const PUBLIC_ATTRS = { exclude: ["passwordHash"] };
+// Campos sensiveis nao devem sair na resposta da API.
+const PUBLIC_USER_ATTRIBUTES = { exclude: ["passwordHash"] };
 
 async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
   const existing = await Users.findOne({
@@ -30,6 +31,7 @@ async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
   throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
 }
 
+// Em update, o proprio usuario pode manter seus dados atuais sem conflito.
 async function checkDuplicateOnUpdate(userId: number, input: UpdateUserInput): Promise<void> {
   const conditions = [];
 
@@ -49,6 +51,7 @@ async function checkDuplicateOnUpdate(userId: number, input: UpdateUserInput): P
   throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
 }
 
+// Regra de autorizacao: usuario so pode alterar/deletar a propria conta.
 function ensureOwner(targetId: number, authId: number): void {
   if (targetId !== authId) {
     throw new AppError(403, "FORBIDDEN", "You can only manage your own account");
@@ -69,7 +72,7 @@ export async function listUsers(query: ListUsersQuery) {
   const offset = (query.page - 1) * query.limit;
 
   const result = await Users.findAndCountAll({
-    attributes: PUBLIC_ATTRS,
+    attributes: PUBLIC_USER_ATTRIBUTES,
     limit: query.limit,
     offset,
     order: [["createdAt", "DESC"]],
@@ -87,7 +90,7 @@ export async function listUsers(query: ListUsersQuery) {
 }
 
 export async function getUserById(id: number) {
-  const user = await Users.findByPk(id, { attributes: PUBLIC_ATTRS });
+  const user = await Users.findByPk(id, { attributes: PUBLIC_USER_ATTRIBUTES });
 
   if (!user) {
     throw new AppError(404, "USER_NOT_FOUND", "User not found");
