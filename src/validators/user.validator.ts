@@ -1,4 +1,5 @@
 import { AppError } from "../utils/app-error";
+import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
 
 // ── Interfaces ──────────────────────────────────────────────
 
@@ -89,16 +90,18 @@ function validatePasswordStrength(password: string): void {
 
 // ── Validators ──────────────────────────────────────────────
 
-export function validateCreateUserInput(body: Record<string, unknown>): CreateUserInput {
+export function validateCreateUserInput(body: unknown): CreateUserInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
-  const email = validateEmail(requireString(body.email, "email"));
-  const username = requireString(body.username, "username");
-  const password = requireString(body.password, "password");
-  const fullName = requireString(body.fullName, "fullName");
-  const cpf = validateCpf(requireString(body.cpf, "cpf"));
+  const requestBody = body as Record<string, unknown>;
+
+  const email = validateEmail(requireString(requestBody.email, "email"));
+  const username = requireString(requestBody.username, "username");
+  const password = requireString(requestBody.password, "password");
+  const fullName = requireString(requestBody.fullName, "fullName");
+  const cpf = validateCpf(requireString(requestBody.cpf, "cpf"));
 
   if (username.length < 3 || username.length > 50) {
     throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
@@ -112,43 +115,45 @@ export function validateCreateUserInput(body: Record<string, unknown>): CreateUs
     password,
     fullName,
     cpf,
-    avatarUrl: body.avatarUrl ? String(body.avatarUrl) : null,
+    avatarUrl: requestBody.avatarUrl ? String(requestBody.avatarUrl) : null,
   };
 }
 
-export function validateUpdateUserInput(body: Record<string, unknown>): UpdateUserInput {
+export function validateUpdateUserInput(body: unknown): UpdateUserInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
-  if ("email" in body) {
+  const requestBody = body as Record<string, unknown>;
+
+  if ("email" in requestBody) {
     throw new AppError(400, "VALIDATION_ERROR", "Email cannot be changed");
   }
 
   const result: UpdateUserInput = {};
 
-  if (body.username !== undefined) {
-    result.username = requireString(body.username, "username");
+  if (requestBody.username !== undefined) {
+    result.username = requireString(requestBody.username, "username");
     if (result.username.length < 3 || result.username.length > 50) {
       throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
     }
   }
 
-  if (body.password !== undefined) {
-    result.password = requireString(body.password, "password");
+  if (requestBody.password !== undefined) {
+    result.password = requireString(requestBody.password, "password");
     validatePasswordStrength(result.password);
   }
 
-  if (body.fullName !== undefined) {
-    result.fullName = requireString(body.fullName, "fullName");
+  if (requestBody.fullName !== undefined) {
+    result.fullName = requireString(requestBody.fullName, "fullName");
   }
 
-  if (body.cpf !== undefined) {
-    result.cpf = validateCpf(requireString(body.cpf, "cpf"));
+  if (requestBody.cpf !== undefined) {
+    result.cpf = validateCpf(requireString(requestBody.cpf, "cpf"));
   }
 
-  if (body.avatarUrl !== undefined) {
-    result.avatarUrl = body.avatarUrl ? String(body.avatarUrl) : null;
+  if (requestBody.avatarUrl !== undefined) {
+    result.avatarUrl = requestBody.avatarUrl ? String(requestBody.avatarUrl) : null;
   }
 
   const hasChanges = Object.keys(result).length > 0;
@@ -159,22 +164,11 @@ export function validateUpdateUserInput(body: Record<string, unknown>): UpdateUs
   return result;
 }
 
-export function validateListUsersQuery(query: Record<string, unknown>): ListUsersQuery {
-  const page = Number(query?.page) || 1;
-  const limit = Number(query?.limit) || 20;
-
-  return {
-    page: page > 0 ? page : 1,
-    limit: limit > 0 && limit <= 100 ? limit : 20,
-  };
+export function validateListUsersQuery(query: unknown): ListUsersQuery {
+  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+  return validatePaginationQuery(safeQuery);
 }
 
 export function validateIdParam(id: string): number {
-  const numero = Number(id);
-
-  if (!Number.isInteger(numero) || numero <= 0) {
-    throw new AppError(400, "VALIDATION_ERROR", "id must be a positive integer");
-  }
-
-  return numero;
+  return validatePositiveIdParam(id);
 }

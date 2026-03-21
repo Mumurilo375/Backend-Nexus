@@ -1,4 +1,5 @@
 import { AppError } from "../utils/app-error";
+import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
 
 export interface CreateGameInput {
   title: string;
@@ -37,47 +38,51 @@ function validateDate(value: string, field: string): string {
   return value;
 }
 
-export function validateCreateGameInput(body: Record<string, unknown>): CreateGameInput {
+export function validateCreateGameInput(body: unknown): CreateGameInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
-  const title = requireString(body.title, "title");
-  const description = requireString(body.description, "description");
-  const longDescription = requireString(body.longDescription, "longDescription");
-  const releaseDate = validateDate(requireString(body.releaseDate, "releaseDate"), "releaseDate");
-  const coverImageUrl = requireString(body.coverImageUrl, "coverImageUrl");
+  const requestBody = body as Record<string, unknown>;
+
+  const title = requireString(requestBody.title, "title");
+  const description = requireString(requestBody.description, "description");
+  const longDescription = requireString(requestBody.longDescription, "longDescription");
+  const releaseDate = validateDate(requireString(requestBody.releaseDate, "releaseDate"), "releaseDate");
+  const coverImageUrl = requireString(requestBody.coverImageUrl, "coverImageUrl");
 
   return { title, description, longDescription, releaseDate, coverImageUrl };
 }
 
-export function validateUpdateGameInput(body: Record<string, unknown>): UpdateGameInput {
+export function validateUpdateGameInput(body: unknown): UpdateGameInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
+  const requestBody = body as Record<string, unknown>;
+
   const result: UpdateGameInput = {};
 
-  if (body.title !== undefined) {
-    result.title = requireString(body.title, "title");
+  if (requestBody.title !== undefined) {
+    result.title = requireString(requestBody.title, "title");
   }
-  if (body.description !== undefined) {
-    result.description = requireString(body.description, "description");
+  if (requestBody.description !== undefined) {
+    result.description = requireString(requestBody.description, "description");
   }
-  if (body.longDescription !== undefined) {
-    result.longDescription = requireString(body.longDescription, "longDescription");
+  if (requestBody.longDescription !== undefined) {
+    result.longDescription = requireString(requestBody.longDescription, "longDescription");
   }
-  if (body.releaseDate !== undefined) {
-    result.releaseDate = validateDate(requireString(body.releaseDate, "releaseDate"), "releaseDate");
+  if (requestBody.releaseDate !== undefined) {
+    result.releaseDate = validateDate(requireString(requestBody.releaseDate, "releaseDate"), "releaseDate");
   }
-  if (body.coverImageUrl !== undefined) {
-    result.coverImageUrl = requireString(body.coverImageUrl, "coverImageUrl");
+  if (requestBody.coverImageUrl !== undefined) {
+    result.coverImageUrl = requireString(requestBody.coverImageUrl, "coverImageUrl");
   }
-  if (body.isActive !== undefined) {
-    if (typeof body.isActive !== "boolean") {
+  if (requestBody.isActive !== undefined) {
+    if (typeof requestBody.isActive !== "boolean") {
       throw new AppError(400, "VALIDATION_ERROR", "isActive must be a boolean");
     }
-    result.isActive = body.isActive;
+    result.isActive = requestBody.isActive;
   }
 
   if (Object.keys(result).length === 0) {
@@ -87,20 +92,11 @@ export function validateUpdateGameInput(body: Record<string, unknown>): UpdateGa
   return result;
 }
 
-export function validateListGamesQuery(query: Record<string, unknown>): ListGamesQuery {
-  const page = Number(query?.page) || 1;
-  const limit = Number(query?.limit) || 20;
-
-  return {
-    page: page > 0 ? page : 1,
-    limit: limit > 0 && limit <= 100 ? limit : 20,
-  };
+export function validateListGamesQuery(query: unknown): ListGamesQuery {
+  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+  return validatePaginationQuery(safeQuery);
 }
 
 export function validateIdParam(id: string): number {
-  const num = Number(id);
-  if (!Number.isInteger(num) || num <= 0) {
-    throw new AppError(400, "VALIDATION_ERROR", "id must be a positive integer");
-  }
-  return num;
+  return validatePositiveIdParam(id);
 }

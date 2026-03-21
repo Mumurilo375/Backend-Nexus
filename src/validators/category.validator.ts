@@ -1,4 +1,5 @@
 import { AppError } from "../utils/app-error";
+import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
 
 export interface CreateCategoryInput {
   name: string;
@@ -13,12 +14,14 @@ export interface ListCategoriesQuery {
   limit: number;
 }
 
-export function validateCreateCategoryInput(body: Record<string, unknown>): CreateCategoryInput {
+export function validateCreateCategoryInput(body: unknown): CreateCategoryInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
-  const name = String(body.name ?? "").trim();
+  const requestBody = body as Record<string, unknown>;
+
+  const name = String(requestBody.name ?? "").trim();
   if (!name) {
     throw new AppError(400, "VALIDATION_ERROR", "name is required");
   }
@@ -29,12 +32,14 @@ export function validateCreateCategoryInput(body: Record<string, unknown>): Crea
   return { name };
 }
 
-export function validateUpdateCategoryInput(body: Record<string, unknown>): UpdateCategoryInput {
+export function validateUpdateCategoryInput(body: unknown): UpdateCategoryInput {
   if (!body || typeof body !== "object") {
     throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
   }
 
-  const name = String(body.name ?? "").trim();
+  const requestBody = body as Record<string, unknown>;
+
+  const name = String(requestBody.name ?? "").trim();
   if (!name) {
     throw new AppError(400, "VALIDATION_ERROR", "name is required");
   }
@@ -45,20 +50,11 @@ export function validateUpdateCategoryInput(body: Record<string, unknown>): Upda
   return { name };
 }
 
-export function validateListCategoriesQuery(query: Record<string, unknown>): ListCategoriesQuery {
-  const page = Number(query?.page) || 1;
-  const limit = Number(query?.limit) || 20;
-
-  return {
-    page: page > 0 ? page : 1,
-    limit: limit > 0 && limit <= 100 ? limit : 20,
-  };
+export function validateListCategoriesQuery(query: unknown): ListCategoriesQuery {
+  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+  return validatePaginationQuery(safeQuery);
 }
 
 export function validateIdParam(id: string): number {
-  const num = Number(id);
-  if (!Number.isInteger(num) || num <= 0) {
-    throw new AppError(400, "VALIDATION_ERROR", "id must be a positive integer");
-  }
-  return num;
+  return validatePositiveIdParam(id);
 }
