@@ -13,10 +13,10 @@ export interface CreateUserInput {
 }
 
 export interface UpdateUserInput {
-  username?: string;
-  password?: string;
-  fullName?: string;
-  cpf?: string;
+  username: string;
+  password: string;
+  fullName: string;
+  cpf: string;
   avatarUrl?: string | null;
 }
 
@@ -130,38 +130,26 @@ export function validateUpdateUserInput(body: unknown): UpdateUserInput {
     throw new AppError(400, "VALIDATION_ERROR", "Email cannot be changed");
   }
 
-  const result: UpdateUserInput = {};
-
-  if (requestBody.username !== undefined) {
-    result.username = requireString(requestBody.username, "username");
-    if (result.username.length < 3 || result.username.length > 50) {
-      throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
-    }
+  const username = requireString(requestBody.username, "username");
+  if (username.length < 3 || username.length > 50) {
+    throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
   }
 
-  if (requestBody.password !== undefined) {
-    result.password = requireString(requestBody.password, "password");
-    validatePasswordStrength(result.password);
-  }
+  const password = requireString(requestBody.password, "password");
+  validatePasswordStrength(password);
 
-  if (requestBody.fullName !== undefined) {
-    result.fullName = requireString(requestBody.fullName, "fullName");
-  }
+  const fullName = requireString(requestBody.fullName, "fullName");
+  const cpf = validateCpf(requireString(requestBody.cpf, "cpf"));
 
-  if (requestBody.cpf !== undefined) {
-    result.cpf = validateCpf(requireString(requestBody.cpf, "cpf"));
-  }
-
-  if (requestBody.avatarUrl !== undefined) {
-    result.avatarUrl = requestBody.avatarUrl ? String(requestBody.avatarUrl) : null;
-  }
-
-  const hasChanges = Object.keys(result).length > 0;
-  if (!hasChanges) {
-    throw new AppError(400, "VALIDATION_ERROR", "At least one field must be provided");
-  }
-
-  return result;
+  return {
+    username,
+    password,
+    fullName,
+    cpf,
+    avatarUrl: requestBody.avatarUrl !== undefined
+      ? (requestBody.avatarUrl ? String(requestBody.avatarUrl) : null)
+      : undefined,
+  };
 }
 
 export function validateListUsersQuery(query: unknown): ListUsersQuery {
