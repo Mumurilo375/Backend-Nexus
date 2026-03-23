@@ -4,7 +4,6 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const categoriesRouter = Router();
 
-// Protegido: neste projeto, categorias sao administradas com autenticacao.
 categoriesRouter.get("/", authMiddleware, CategoryController.list);
 categoriesRouter.post("/", authMiddleware, CategoryController.create);
 categoriesRouter.get("/:id", authMiddleware, CategoryController.get);

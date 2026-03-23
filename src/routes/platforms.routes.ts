@@ -4,7 +4,6 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 
 const platformsRouter = Router();
 
-// Protegido: neste projeto, plataformas sao administradas com autenticacao.
 platformsRouter.get("/", authMiddleware, PlatformController.list);
 platformsRouter.post("/", authMiddleware, PlatformController.create);
 platformsRouter.get("/:id", authMiddleware, PlatformController.get);
