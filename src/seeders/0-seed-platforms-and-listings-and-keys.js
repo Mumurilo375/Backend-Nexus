@@ -18,14 +18,25 @@ module.exports = {
     const keys = [];
 
     // Todos os jogos aceitam Steam, PlayStation e Xbox.
-    // Apenas Hades (19), Metaphor (16), Monster Hunter (14) e Persona 5 Royal (11) aceitam Nintendo Switch.
-    const gamesWithSwitch = new Set([11, 14, 16, 19]);
+    // Apenas Hades, Metaphor: ReFantazio, Monster Hunter Wilds e Persona 5 Royal aceitam Nintendo Switch.
+    const gamesWithSwitch = new Set([
+      'Hades',
+      'Metaphor: ReFantazio',
+      'Monster Hunter Wilds',
+      'Persona 5 Royal',
+    ]);
+
+    const games = await queryInterface.sequelize.query(
+      "SELECT id, title FROM games ORDER BY id ASC",
+      { type: Sequelize.QueryTypes.SELECT }
+    );
 
     let listingId = 1;
     let keyId = 1;
 
-    for (let gameId = 1; gameId <= 20; gameId++) {
-      const acceptedPlatforms = gamesWithSwitch.has(gameId) ? [1, 2, 3, 4] : [1, 2, 3];
+    for (const game of games) {
+      const gameId = Number(game.id);
+      const acceptedPlatforms = gamesWithSwitch.has(String(game.title)) ? [1, 2, 3, 4] : [1, 2, 3];
 
       for (const platformId of acceptedPlatforms) {
         const price = 49.99 + (gameId * 2) + platformId;
