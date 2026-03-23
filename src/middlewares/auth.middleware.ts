@@ -1,7 +1,8 @@
 import { NextFunction, Request, Response } from "express";
 import { verifyToken } from "../utils/jwt";
+import Users from "../models/Users";
 
-export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
 
   if (!header?.startsWith("Bearer ")) {
@@ -10,7 +11,15 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   }
 
   try {
-    req.user = verifyToken(header.slice(7));
+    const payload = verifyToken(header.slice(7));
+    const user = await Users.findByPk(payload.id);
+
+    if (!user) {
+      res.status(401).json({ code: "UNAUTHORIZED", message: "User not found for this token" });
+      return;
+    }
+
+    req.user = payload;
     next();
   } catch {
     res.status(401).json({ code: "UNAUTHORIZED", message: "Invalid or expired token" });
