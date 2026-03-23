@@ -1,4 +1,5 @@
 import sequelize from "../config/database";
+import { Op, Transaction } from "sequelize";
 import CartItem from "../models/CartItem";
 import DeliveredKey from "../models/DeliveredKey";
 import GameKey from "../models/GameKey";
@@ -7,6 +8,8 @@ import Games from "../models/Games";
 import Order from "../models/Order";
 import OrderItem from "../models/OrderItem";
 import Platform from "../models/Platform";
+import Promotion from "../models/Promotion";
+import PromotionListing from "../models/PromotionListing";
 import { AppError } from "../utils/app-error";
 import { CheckoutInput } from "../validators/checkout.validator";
 
@@ -14,8 +17,50 @@ function toNumber(value: unknown): number {
   return Number(value) || 0;
 }
 
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 function generateOrderNumber(userId: number): string {
   return `NEX-${userId}-${Date.now()}`;
+}
+
+async function getActiveDiscountPercentage(listingId: number, transaction: Transaction): Promise<number> {
+  const now = new Date();
+
+  const links = await PromotionListing.findAll({
+    where: { listingId },
+    include: [
+      {
+        model: Promotion,
+        as: "promotion",
+        required: true,
+        where: {
+          isActive: true,
+          startDate: { [Op.lte]: now },
+          endDate: { [Op.gte]: now },
+        },
+      },
+    ],
+    transaction,
+  });
+
+  let maxDiscount = 0;
+
+  for (const link of links) {
+    const promotion = link.get("promotion") as Promotion | undefined;
+    const discount = toNumber(promotion?.get("discountPercentage"));
+
+    if (discount < 0 || discount > 100) {
+      throw new AppError(400, "VALIDATION_ERROR", "Invalid promotion discount percentage");
+    }
+
+    if (discount > maxDiscount) {
+      maxDiscount = discount;
+    }
+  }
+
+  return maxDiscount;
 }
 
 export async function checkoutUserCart(userId: number, input: CheckoutInput) {
@@ -43,6 +88,8 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
 
     const selectedItems: Array<{ listing: GamePlatformListing; gameKey: GameKey }> = [];
     let subtotal = 0;
+    let discountAmount = 0;
+    const pricesByListingId = new Map<number, number>();
 
     for (const cartItem of cartItems as Array<CartItem & { listing?: GamePlatformListing }>) {
       const listing = cartItem.listing;
@@ -51,9 +98,16 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
         throw new AppError(409, "LISTING_UNAVAILABLE", "A cart item is unavailable");
       }
 
+      const listingId = Number(listing.get("id"));
+      const basePrice = toNumber(listing.get("price"));
+
+      if (basePrice <= 0) {
+        throw new AppError(400, "INVALID_PRICE", "Listing price must be greater than 0");
+      }
+
       const gameKey = await GameKey.findOne({
         where: {
-          listingId: Number(listing.get("id")),
+          listingId,
           status: "available",
         },
         order: [["id", "ASC"]],
@@ -66,8 +120,19 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       }
 
       selectedItems.push({ listing, gameKey });
-      subtotal += toNumber(listing.get("price"));
+
+      const discountPercentage = await getActiveDiscountPercentage(listingId, transaction);
+      const lineDiscount = roundMoney((basePrice * discountPercentage) / 100);
+      const lineFinalPrice = roundMoney(basePrice - lineDiscount);
+
+      subtotal += basePrice;
+      discountAmount += lineDiscount;
+      pricesByListingId.set(listingId, lineFinalPrice);
     }
+
+    subtotal = roundMoney(subtotal);
+    discountAmount = roundMoney(discountAmount);
+    const totalAmount = roundMoney(subtotal - discountAmount);
 
     const order = await Order.create(
       {
@@ -75,8 +140,8 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
         userId,
         status: "paid",
         subtotal,
-        discountAmount: 0,
-        totalAmount: subtotal,
+        discountAmount,
+        totalAmount,
         paymentMethod: input.paymentMethod,
       },
       { transaction }
@@ -98,7 +163,7 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
           orderId: Number(order.get("id")),
           listingId: Number(selected.listing.get("id")),
           gameKeyId: Number(selected.gameKey.get("id")),
-          price: toNumber(selected.listing.get("price")),
+          price: pricesByListingId.get(Number(selected.listing.get("id"))) ?? toNumber(selected.listing.get("price")),
         },
         { transaction }
       );
