@@ -3,6 +3,7 @@ import {
   createListing,
   deleteListing,
   getListingById,
+  getListingStockById,
   listListings,
   updateListing,
 } from "../services/listing.service";
@@ -29,6 +30,16 @@ class ListingController {
       const listingId = validateListingIdParam(req.params.id as string);
       const listing = await getListingById(listingId);
       res.status(200).json(listing);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async stock(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const listingId = validateListingIdParam(req.params.id as string);
+      const stock = await getListingStockById(listingId);
+      res.status(200).json(stock);
     } catch (error) {
       next(error);
     }

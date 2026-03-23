@@ -1,4 +1,5 @@
 import GamePlatformListing from "../models/GamePlatformListing";
+import GameKey from "../models/GameKey";
 import Games from "../models/Games";
 import Platform from "../models/Platform";
 import { AppError } from "../utils/app-error";
@@ -44,6 +45,26 @@ export async function getListingById(id: number) {
   }
 
   return listing;
+}
+
+export async function getListingStockById(id: number) {
+  await findListingOrFail(id);
+
+  const [available, reserved, sold] = await Promise.all([
+    GameKey.count({ where: { listingId: id, status: "available" } }),
+    GameKey.count({ where: { listingId: id, status: "reserved" } }),
+    GameKey.count({ where: { listingId: id, status: "sold" } }),
+  ]);
+
+  return {
+    listingId: id,
+    stock: {
+      available,
+      reserved,
+      sold,
+      total: available + reserved + sold,
+    },
+  };
 }
 
 export async function createListing(input: CreateListingInput) {

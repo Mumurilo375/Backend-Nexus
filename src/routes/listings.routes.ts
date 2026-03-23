@@ -6,6 +6,7 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 const listingsRouter = Router();
 
 listingsRouter.get("/", ListingController.list);
+listingsRouter.get("/:id/stock", ListingController.stock);
 listingsRouter.get("/:id", ListingController.get);
 listingsRouter.post("/", authMiddleware, adminMiddleware, ListingController.create);
 listingsRouter.put("/:id", authMiddleware, adminMiddleware, ListingController.update);
