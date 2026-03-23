@@ -16,17 +16,21 @@ module.exports = {
       "SELECT setval(pg_get_serial_sequence('platforms', 'id'), COALESCE(MAX(id), 1)) FROM platforms;"
     );
 
-    // Criar algumas listagens (game + plataforma) e keys simples
+    // Criar listagens (game + plataforma) e keys simples
     const listings = [];
     const keys = [];
 
-    // Supondo que existem pelo menos 10 jogos (IDs 1..10) vindos do seeder 0-seed-games
-    // e 4 plataformas (IDs 1..4) deste seeder.
+    // Todos os jogos aceitam Steam, PlayStation e Xbox.
+    // Apenas Hades (19), Metaphor (16), Monster Hunter (14) e Persona 5 Royal (11) aceitam Nintendo Switch.
+    const gamesWithSwitch = new Set([11, 14, 16, 19]);
+
     let listingId = 1;
     let keyId = 1;
 
-    for (let gameId = 1; gameId <= 10; gameId++) {
-      for (let platformId = 1; platformId <= 4; platformId++) {
+    for (let gameId = 1; gameId <= 20; gameId++) {
+      const acceptedPlatforms = gamesWithSwitch.has(gameId) ? [1, 2, 3, 4] : [1, 2, 3];
+
+      for (const platformId of acceptedPlatforms) {
         const price = 49.99 + (gameId * 2) + platformId;
         listings.push({
           id: listingId,
