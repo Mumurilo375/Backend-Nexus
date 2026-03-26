@@ -4,6 +4,7 @@ import { errorMiddleware, notFoundMiddleware } from "./middlewares/error.middlew
 import routes from "./routes";
 
 const app = express();
+const jsonParser = express.json();
 
 app.use(
 	cors({
@@ -11,7 +12,14 @@ app.use(
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
 	})
 );
-app.use(express.json());
+app.use((req, res, next) => {
+	if (req.originalUrl === "/payments/stripe/webhook") {
+		express.raw({ type: "application/json" })(req, res, next);
+		return;
+	}
+
+	jsonParser(req, res, next);
+});
 app.use(routes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

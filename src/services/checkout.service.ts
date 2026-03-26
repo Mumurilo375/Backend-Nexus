@@ -1,7 +1,6 @@
 import sequelize from "../config/database";
 import { Op, Transaction } from "sequelize";
 import CartItem from "../models/CartItem";
-import DeliveredKey from "../models/DeliveredKey";
 import GameKey from "../models/GameKey";
 import GamePlatformListing from "../models/GamePlatformListing";
 import Games from "../models/Games";
@@ -10,6 +9,7 @@ import OrderItem from "../models/OrderItem";
 import Platform from "../models/Platform";
 import Promotion from "../models/Promotion";
 import PromotionListing from "../models/PromotionListing";
+import { createStripeCheckoutSession } from "./payment-gateway.service";
 import { AppError } from "../utils/app-error";
 import { CheckoutInput } from "../validators/checkout.validator";
 
@@ -79,7 +79,6 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       ],
       order: [["id", "ASC"]],
       transaction,
-      lock: transaction.LOCK.UPDATE,
     });
 
     if (cartItems.length === 0) {
@@ -138,11 +137,13 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       {
         orderNumber: generateOrderNumber(userId),
         userId,
-        status: "paid",
+        status: "pending",
         subtotal,
         discountAmount,
         totalAmount,
         paymentMethod: input.paymentMethod,
+        paymentProvider: "stripe",
+        paymentStatus: "pending",
       },
       { transaction }
     );
@@ -151,14 +152,14 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       const now = new Date();
       await selected.gameKey.update(
         {
-          status: "sold",
+          status: "reserved",
           reservedAt: now,
-          soldAt: now,
+          soldAt: null,
         },
         { transaction }
       );
 
-      const orderItem = await OrderItem.create(
+      await OrderItem.create(
         {
           orderId: Number(order.get("id")),
           listingId: Number(selected.listing.get("id")),
@@ -167,19 +168,35 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
         },
         { transaction }
       );
-
-      await DeliveredKey.create(
-        {
-          userId,
-          orderItemId: Number(orderItem.get("id")),
-          gameKeyId: Number(selected.gameKey.get("id")),
-          deliveredAt: now,
-        },
-        { transaction }
-      );
     }
 
     await CartItem.destroy({ where: { userId }, transaction });
+
+    const amountInCents = Math.round(totalAmount * 100);
+    if (!Number.isInteger(amountInCents) || amountInCents <= 0) {
+      throw new AppError(400, "INVALID_AMOUNT", "Invalid payment amount");
+    }
+
+    const checkoutSession = await createStripeCheckoutSession({
+      orderId: Number(order.get("id")),
+      userId,
+      amountInCents,
+      paymentMethodType: input.paymentMethod,
+    });
+
+    if (!checkoutSession.url) {
+      throw new AppError(502, "PAYMENT_PROVIDER_ERROR", "Stripe checkout URL was not generated");
+    }
+
+    await order.update(
+      {
+        providerCheckoutSessionId: checkoutSession.id,
+        providerPaymentIntentId: typeof checkoutSession.payment_intent === "string"
+          ? checkoutSession.payment_intent
+          : null,
+      },
+      { transaction }
+    );
 
     const createdOrder = await Order.findByPk(order.get("id"), {
       include: [
@@ -202,6 +219,18 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       transaction,
     });
 
-    return createdOrder;
+    if (!createdOrder) {
+      throw new AppError(500, "ORDER_NOT_FOUND_AFTER_CREATE", "Order was created but could not be loaded");
+    }
+
+    return {
+      order: createdOrder,
+      payment: {
+        provider: "stripe",
+        method: input.paymentMethod,
+        checkoutUrl: checkoutSession.url,
+        checkoutSessionId: checkoutSession.id,
+      },
+    };
   });
 }

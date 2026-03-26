@@ -1,5 +1,10 @@
 import { NextFunction, Request, Response } from "express";
-import { getUserOrderById, listUserOrders } from "../services/orders.service";
+import {
+  cancelUserPendingOrder,
+  confirmUserOrderPayment,
+  getUserOrderById,
+  listUserOrders,
+} from "../services/orders.service";
 import { requireAuthenticatedUserId } from "../utils/auth-user";
 import { validateListOrdersQuery, validateOrderIdParam } from "../validators/order.validator";
 
@@ -18,6 +23,26 @@ class OrderController {
     try {
       const orderId = validateOrderIdParam(req.params.id as string);
       const order = await getUserOrderById(requireAuthenticatedUserId(req), orderId);
+      res.status(200).json(order);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async confirmPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orderId = validateOrderIdParam(req.params.id as string);
+      const order = await confirmUserOrderPayment(requireAuthenticatedUserId(req), orderId);
+      res.status(200).json(order);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async cancel(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const orderId = validateOrderIdParam(req.params.id as string);
+      const order = await cancelUserPendingOrder(requireAuthenticatedUserId(req), orderId);
       res.status(200).json(order);
     } catch (error) {
       next(error);

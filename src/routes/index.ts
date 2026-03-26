@@ -14,6 +14,7 @@ import orderItemsRouter from "./order-items.routes";
 import ordersRouter from "./orders.routes";
 import platformsRouter from "./platforms.routes";
 import promotionsRouter from "./promotions.routes";
+import paymentsRouter from "./payments.routes";
 import reviewVotesRouter from "./review-votes.routes";
 import reviewsRouter from "./reviews.routes";
 import usersRouter from "./users.routes";
@@ -52,6 +53,7 @@ router.use("/review-votes", reviewVotesRouter);
 router.use("/game-keys", gameKeysRouter);
 router.use("/listings", listingsRouter);
 router.use("/promotions", promotionsRouter);
+router.use("/payments", paymentsRouter);
 router.use("/game-images", gameImagesRouter);
 router.use("/game-tags", gameTagsRouter);
 

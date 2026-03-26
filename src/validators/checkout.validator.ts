@@ -1,7 +1,7 @@
 import { AppError } from "../utils/app-error";
 
 export interface CheckoutInput {
-  paymentMethod: string;
+  paymentMethod: "card" | "pix";
 }
 
 export function validateCheckoutInput(body: unknown): CheckoutInput {
@@ -10,15 +10,11 @@ export function validateCheckoutInput(body: unknown): CheckoutInput {
   }
 
   const requestBody = body as Record<string, unknown>;
-  const paymentMethod = String(requestBody.paymentMethod ?? "").trim();
+  const paymentMethod = String(requestBody.paymentMethod ?? "").trim().toLowerCase();
 
-  if (!paymentMethod) {
-    throw new AppError(400, "VALIDATION_ERROR", "paymentMethod is required");
+  if (paymentMethod !== "card" && paymentMethod !== "pix") {
+    throw new AppError(400, "VALIDATION_ERROR", "paymentMethod must be 'card' or 'pix'");
   }
 
-  if (paymentMethod.length > 50) {
-    throw new AppError(400, "VALIDATION_ERROR", "paymentMethod must have at most 50 characters");
-  }
-
-  return { paymentMethod };
+  return { paymentMethod: paymentMethod as "card" | "pix" };
 }

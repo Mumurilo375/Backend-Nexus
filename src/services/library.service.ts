@@ -19,7 +19,7 @@ export async function listUserLibraryKeys(userId: number, query: ListLibraryQuer
       {
         model: Order,
         as: "order",
-        where: { userId },
+        where: { userId, status: "paid" },
         required: true,
       },
       {
