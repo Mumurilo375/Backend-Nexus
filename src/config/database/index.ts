@@ -41,11 +41,11 @@ const sequelize = databaseUrl
   : new Sequelize(
       process.env.PGDATABASE ?? process.env.DB_NAME ?? "nexus",
       process.env.PGUSER ?? process.env.DB_USER ?? "postgres",
-      process.env.PGPASSWORD ?? process.env.DB_PASSWORD ?? "246810",
+      process.env.PGPASSWORD ?? process.env.DB_PASSWORD ?? "postgres",
       {
         ...sequelizeOptions,
         host: process.env.PGHOST ?? process.env.DB_HOST ?? "localhost",
-        port: Number(process.env.PGPORT ?? process.env.DB_PORT ?? 5434),
+        port: Number(process.env.PGPORT ?? process.env.DB_PORT ?? 5432),
       },
     );
 

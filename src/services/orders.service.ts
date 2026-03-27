@@ -9,7 +9,6 @@ import sequelize from "../config/database";
 import { AppError } from "../utils/app-error";
 import { ListOrdersQuery } from "../validators/order.validator";
 import { Transaction } from "sequelize";
-import { getStripeClient } from "./payment-gateway.service";
 
 const ORDER_ITEMS_INCLUDE = [
   {
@@ -78,26 +77,7 @@ async function getUserOrderByIdForUpdate(userId: number, orderId: number, transa
   return order;
 }
 
-async function getOrderByIdForUpdate(orderId: number, transaction: Transaction) {
-  const order = await Order.findOne({
-    where: { id: orderId },
-    include: ORDER_ITEMS_INCLUDE,
-    transaction,
-  });
-
-  if (!order) {
-    throw new AppError(404, "ORDER_NOT_FOUND", "Order not found");
-  }
-
-  return order;
-}
-
-async function applyPaidTransition(
-  order: Order,
-  userId: number,
-  transaction: Transaction,
-  providerPaymentIntentId?: string | null
-) {
+async function applyPaidTransition(order: Order, userId: number, transaction: Transaction) {
   const orderStatus = String(order.get("status"));
   if (orderStatus === "paid") return order;
 
@@ -156,10 +136,7 @@ async function applyPaidTransition(
     {
       status: "paid",
       paymentStatus: "succeeded",
-      providerPaymentIntentId: providerPaymentIntentId ?? order.get("providerPaymentIntentId"),
       paymentConfirmedAt: now,
-      paymentErrorCode: null,
-      paymentErrorMessage: null,
       cancelledAt: null,
     },
     { transaction }
@@ -180,94 +157,10 @@ export async function confirmUserOrderPayment(userId: number, orderId: number) {
     return baseOrder;
   }
 
-  const provider = String(baseOrder.get("paymentProvider") ?? "");
-  const checkoutSessionId = String(baseOrder.get("providerCheckoutSessionId") ?? "");
-
-  if (provider !== "stripe" || !checkoutSessionId) {
-    throw new AppError(409, "PAYMENT_PROVIDER_NOT_FOUND", "Payment provider data not found for order");
-  }
-
-  const stripe = getStripeClient();
-  const checkoutSession = await stripe.checkout.sessions.retrieve(checkoutSessionId, {
-    expand: ["payment_intent", "payment_intent.latest_charge"],
-  });
-
-  if (checkoutSession.payment_status !== "paid") {
-    throw new AppError(409, "PAYMENT_NOT_CONFIRMED", "Payment is still pending at the provider");
-  }
-
-  const paymentIntentId =
-    typeof checkoutSession.payment_intent === "string"
-      ? checkoutSession.payment_intent
-      : checkoutSession.payment_intent?.id;
-
-  const charge =
-    typeof checkoutSession.payment_intent === "string"
-      ? undefined
-      : checkoutSession.payment_intent?.latest_charge;
-
-  const paymentMethodDetails =
-    charge && typeof charge !== "string" ? charge.payment_method_details?.card : null;
-
   return sequelize.transaction(async (transaction) => {
     const order = await getUserOrderByIdForUpdate(userId, orderId, transaction);
-    await applyPaidTransition(order, userId, transaction, paymentIntentId ?? null);
-    await order.update(
-      {
-        cardBrand: paymentMethodDetails?.brand ?? null,
-        cardLast4: paymentMethodDetails?.last4 ?? null,
-      },
-      { transaction }
-    );
+    await applyPaidTransition(order, userId, transaction);
     return getUserOrderByIdForUpdate(userId, orderId, transaction);
-  });
-}
-
-export async function markOrderPaymentFailedByCheckoutSessionId(
-  checkoutSessionId: string,
-  errorCode?: string,
-  errorMessage?: string
-) {
-  await Order.update(
-    {
-      paymentStatus: "failed",
-      paymentErrorCode: errorCode ?? null,
-      paymentErrorMessage: errorMessage ?? null,
-    },
-    {
-      where: { providerCheckoutSessionId: checkoutSessionId, status: "pending" },
-    }
-  );
-}
-
-export async function finalizeOrderPaymentByCheckoutSessionId(
-  checkoutSessionId: string,
-  providerPaymentIntentId?: string,
-  cardBrand?: string | null,
-  cardLast4?: string | null
-) {
-  return sequelize.transaction(async (transaction) => {
-    const order = await Order.findOne({
-      where: { providerCheckoutSessionId: checkoutSessionId },
-      include: ORDER_ITEMS_INCLUDE,
-      transaction,
-    });
-
-    if (!order) {
-      throw new AppError(404, "ORDER_NOT_FOUND", "Order not found for checkout session");
-    }
-
-    const userId = Number(order.get("userId"));
-    await applyPaidTransition(order, userId, transaction, providerPaymentIntentId ?? null);
-    await order.update(
-      {
-        cardBrand: cardBrand ?? null,
-        cardLast4: cardLast4 ?? null,
-      },
-      { transaction }
-    );
-
-    return getOrderByIdForUpdate(Number(order.get("id")), transaction);
   });
 }
 
@@ -310,6 +203,7 @@ export async function cancelUserPendingOrder(userId: number, orderId: number) {
     await order.update(
       {
         status: "cancelled",
+        paymentStatus: "cancelled",
         cancelledAt: new Date(),
       },
       { transaction }

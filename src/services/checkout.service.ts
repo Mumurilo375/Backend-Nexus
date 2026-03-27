@@ -1,6 +1,7 @@
 import sequelize from "../config/database";
 import { Op, Transaction } from "sequelize";
 import CartItem from "../models/CartItem";
+import DeliveredKey from "../models/DeliveredKey";
 import GameKey from "../models/GameKey";
 import GamePlatformListing from "../models/GamePlatformListing";
 import Games from "../models/Games";
@@ -9,7 +10,6 @@ import OrderItem from "../models/OrderItem";
 import Platform from "../models/Platform";
 import Promotion from "../models/Promotion";
 import PromotionListing from "../models/PromotionListing";
-import { createStripeCheckoutSession } from "./payment-gateway.service";
 import { AppError } from "../utils/app-error";
 import { CheckoutInput } from "../validators/checkout.validator";
 
@@ -85,10 +85,10 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       throw new AppError(400, "CART_EMPTY", "Cart is empty");
     }
 
-    const selectedItems: Array<{ listing: GamePlatformListing; gameKey: GameKey }> = [];
+    const selectedItems: Array<{ listing: GamePlatformListing; gameKey: GameKey; finalPrice: number }> = [];
     let subtotal = 0;
     let discountAmount = 0;
-    const pricesByListingId = new Map<number, number>();
+    const now = new Date();
 
     for (const cartItem of cartItems as Array<CartItem & { listing?: GamePlatformListing }>) {
       const listing = cartItem.listing;
@@ -118,15 +118,14 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
         throw new AppError(409, "OUT_OF_STOCK", "No available keys for one of the selected items");
       }
 
-      selectedItems.push({ listing, gameKey });
-
       const discountPercentage = await getActiveDiscountPercentage(listingId, transaction);
       const lineDiscount = roundMoney((basePrice * discountPercentage) / 100);
       const lineFinalPrice = roundMoney(basePrice - lineDiscount);
 
+      selectedItems.push({ listing, gameKey, finalPrice: lineFinalPrice });
+
       subtotal += basePrice;
       discountAmount += lineDiscount;
-      pricesByListingId.set(listingId, lineFinalPrice);
     }
 
     subtotal = roundMoney(subtotal);
@@ -137,66 +136,49 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       {
         orderNumber: generateOrderNumber(userId),
         userId,
-        status: "pending",
+        status: "paid",
         subtotal,
         discountAmount,
         totalAmount,
         paymentMethod: input.paymentMethod,
-        paymentProvider: "stripe",
-        paymentStatus: "pending",
+        paymentStatus: "succeeded",
+        paymentConfirmedAt: now,
       },
       { transaction }
     );
 
     for (const selected of selectedItems) {
-      const now = new Date();
       await selected.gameKey.update(
         {
-          status: "reserved",
-          reservedAt: now,
-          soldAt: null,
+          status: "sold",
+          reservedAt: null,
+          soldAt: now,
         },
         { transaction }
       );
 
-      await OrderItem.create(
+      const orderItem = await OrderItem.create(
         {
           orderId: Number(order.get("id")),
           listingId: Number(selected.listing.get("id")),
           gameKeyId: Number(selected.gameKey.get("id")),
-          price: pricesByListingId.get(Number(selected.listing.get("id"))) ?? toNumber(selected.listing.get("price")),
+          price: selected.finalPrice,
+        },
+        { transaction }
+      );
+
+      await DeliveredKey.create(
+        {
+          userId,
+          orderItemId: Number(orderItem.get("id")),
+          gameKeyId: Number(selected.gameKey.get("id")),
+          deliveredAt: now,
         },
         { transaction }
       );
     }
 
     await CartItem.destroy({ where: { userId }, transaction });
-
-    const amountInCents = Math.round(totalAmount * 100);
-    if (!Number.isInteger(amountInCents) || amountInCents <= 0) {
-      throw new AppError(400, "INVALID_AMOUNT", "Invalid payment amount");
-    }
-
-    const checkoutSession = await createStripeCheckoutSession({
-      orderId: Number(order.get("id")),
-      userId,
-      amountInCents,
-      paymentMethodType: input.paymentMethod,
-    });
-
-    if (!checkoutSession.url) {
-      throw new AppError(502, "PAYMENT_PROVIDER_ERROR", "Stripe checkout URL was not generated");
-    }
-
-    await order.update(
-      {
-        providerCheckoutSessionId: checkoutSession.id,
-        providerPaymentIntentId: typeof checkoutSession.payment_intent === "string"
-          ? checkoutSession.payment_intent
-          : null,
-      },
-      { transaction }
-    );
 
     const createdOrder = await Order.findByPk(order.get("id"), {
       include: [
@@ -225,12 +207,6 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
 
     return {
       order: createdOrder,
-      payment: {
-        provider: "stripe",
-        method: input.paymentMethod,
-        checkoutUrl: checkoutSession.url,
-        checkoutSessionId: checkoutSession.id,
-      },
     };
   });
 }

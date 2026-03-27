@@ -3,15 +3,11 @@ import app from "./app";
 import sequelize from "./config/database";
 import "./models/associations";
 
-// const port = Number(process.env.PORT ?? 3000); porta normal
-const port = Number(process.env.PORT ?? 8080); // porta para o railway
-const shouldSync = process.env.DB_SYNC === "true";
+const port = Number(process.env.PORT ?? 3000);
 
 async function bootstrap(): Promise<void> {
   try {
     await sequelize.authenticate();
-
-
 
     app.listen(port, () => {
       console.log(`Server is running on port ${port}`);

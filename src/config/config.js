@@ -23,10 +23,10 @@ function createConfig() {
 
   return {
     username: process.env.PGUSER || process.env.DB_USER || 'postgres',
-    password: process.env.PGPASSWORD || process.env.DB_PASSWORD || '246810',
+    password: process.env.PGPASSWORD || process.env.DB_PASSWORD || 'postgres',
     database: process.env.PGDATABASE || process.env.DB_NAME || 'nexus',
     host: process.env.PGHOST || process.env.DB_HOST || 'localhost',
-    port: Number(process.env.PGPORT || process.env.DB_PORT || 5434),
+    port: Number(process.env.PGPORT || process.env.DB_PORT || 5432),
     dialect: 'postgres',
     dialectOptions: useSsl
       ? {
