@@ -1,3 +1,4 @@
+import { Op } from "sequelize";
 import Games from "../models/Games";
 import Categories from "../models/Category";
 import Tags from "../models/Tags";
@@ -18,6 +19,13 @@ export async function listGames(query: ListGamesQuery) {
   const offset = (query.page - 1) * query.limit;
 
   const result = await Games.findAndCountAll({
+    where: query.q
+      ? {
+          title: {
+            [Op.like]: `%${query.q}%`,
+          },
+        }
+      : undefined,
     limit: query.limit,
     offset,
     order: [["createdAt", "DESC"]],

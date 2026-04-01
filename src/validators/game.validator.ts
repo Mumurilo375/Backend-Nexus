@@ -21,6 +21,7 @@ export interface UpdateGameInput {
 export interface ListGamesQuery {
   page: number;
   limit: number;
+  q?: string;
 }
 
 function requireString(value: unknown, field: string): string {
@@ -94,7 +95,17 @@ export function validateUpdateGameInput(body: unknown): UpdateGameInput {
 
 export function validateListGamesQuery(query: unknown): ListGamesQuery {
   const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
-  return validatePaginationQuery(safeQuery);
+  const pagination = validatePaginationQuery(safeQuery);
+  const q = String(safeQuery.q ?? "").trim();
+
+  if (!q) {
+    return pagination;
+  }
+
+  return {
+    ...pagination,
+    q,
+  };
 }
 
 export function validateIdParam(id: string): number {
