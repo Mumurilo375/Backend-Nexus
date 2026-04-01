@@ -77,6 +77,7 @@ export async function listListings(query: ListListingsQuery) {
   const offset = getPaginationOffset(query.page, query.limit);
 
   const result = await GamePlatformListing.findAndCountAll({
+    where: query.gameId ? { gameId: query.gameId } : undefined,
     limit: query.limit,
     offset,
     order: [["id", "DESC"]],

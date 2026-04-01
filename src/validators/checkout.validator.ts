@@ -1,7 +1,7 @@
 import { AppError } from "../utils/app-error";
 
 export interface CheckoutInput {
-  paymentMethod: "card" | "pix";
+  paymentMethod: "card" | "paypal" | "pix";
 }
 
 export function validateCheckoutInput(body: unknown): CheckoutInput {
@@ -12,9 +12,9 @@ export function validateCheckoutInput(body: unknown): CheckoutInput {
   const requestBody = body as Record<string, unknown>;
   const paymentMethod = String(requestBody.paymentMethod ?? "").trim().toLowerCase();
 
-  if (paymentMethod !== "card" && paymentMethod !== "pix") {
-    throw new AppError(400, "VALIDATION_ERROR", "paymentMethod must be 'card' or 'pix'");
+  if (!["card", "paypal", "pix"].includes(paymentMethod)) {
+    throw new AppError(400, "VALIDATION_ERROR", "paymentMethod must be 'card', 'paypal' or 'pix'");
   }
 
-  return { paymentMethod: paymentMethod as "card" | "pix" };
+  return { paymentMethod: paymentMethod as CheckoutInput["paymentMethod"] };
 }

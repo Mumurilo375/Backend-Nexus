@@ -19,7 +19,10 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
       return;
     }
 
-    req.user = payload;
+    req.user = {
+      ...payload,
+      isAdmin: Boolean(user.get("isAdmin")),
+    };
     next();
   } catch {
     res.status(401).json({ code: "UNAUTHORIZED", message: "Invalid or expired token" });

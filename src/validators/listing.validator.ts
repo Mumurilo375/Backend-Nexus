@@ -15,6 +15,7 @@ export interface UpdateListingInput {
 export interface ListListingsQuery {
   page: number;
   limit: number;
+  gameId?: number;
 }
 
 function validatePrice(value: unknown): number {
@@ -71,5 +72,14 @@ export function validateUpdateListingInput(body: unknown): UpdateListingInput {
 
 export function validateListListingsQuery(query: unknown): ListListingsQuery {
   const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
-  return validatePaginationQuery(safeQuery);
+  const pagination = validatePaginationQuery(safeQuery);
+
+  if (safeQuery.gameId === undefined) {
+    return pagination;
+  }
+
+  return {
+    ...pagination,
+    gameId: validatePositiveIdParam(String(safeQuery.gameId)),
+  };
 }

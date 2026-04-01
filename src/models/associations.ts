@@ -44,8 +44,8 @@ GameCategory.belongsTo(Games, { foreignKey: "game_id", as: "game" });
 GameCategory.belongsTo(Categories, { foreignKey: "category_id", as: "category" });
 
 DeliveredKey.belongsTo(Users, { foreignKey: "user_id", as: "user" });
-DeliveredKey.hasOne(OrderItem, { foreignKey: "order_item_id", as: "orderItem" });
-DeliveredKey.hasOne(GameKey, { foreignKey: "game_key_id", as: "gameKey" });
+DeliveredKey.belongsTo(OrderItem, { foreignKey: "order_item_id", as: "orderItem" });
+DeliveredKey.belongsTo(GameKey, { foreignKey: "game_key_id", as: "gameKey" });
 
 GameTag.belongsTo(Games, { foreignKey: "game_id", as: "game" });
 GameTag.belongsTo(Tags, { foreignKey: "tag_id", as: "tag" });
