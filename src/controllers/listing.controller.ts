@@ -3,6 +3,7 @@ import {
   createListing,
   deleteListing,
   getListingById,
+  getListingDetailsById,
   getListingStockById,
   listListings,
   updateListing,
@@ -15,7 +16,11 @@ import {
 } from "../validators/listing.validator";
 
 class ListingController {
-  static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async list(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const query = validateListListingsQuery(req.query);
       const listings = await listListings(query);
@@ -25,7 +30,11 @@ class ListingController {
     }
   }
 
-  static async get(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async get(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const listingId = validateListingIdParam(req.params.id as string);
       const listing = await getListingById(listingId);
@@ -35,7 +44,11 @@ class ListingController {
     }
   }
 
-  static async stock(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async stock(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const listingId = validateListingIdParam(req.params.id as string);
       const stock = await getListingStockById(listingId);
@@ -45,7 +58,25 @@ class ListingController {
     }
   }
 
-  static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async details(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const listingId = validateListingIdParam(req.params.id as string);
+      const listingDetails = await getListingDetailsById(listingId);
+      res.status(200).json(listingDetails);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async create(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const input = validateCreateListingInput(req.body);
       const listing = await createListing(input);
@@ -55,7 +86,11 @@ class ListingController {
     }
   }
 
-  static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async update(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const listingId = validateListingIdParam(req.params.id as string);
       const input = validateUpdateListingInput(req.body);
@@ -66,7 +101,11 @@ class ListingController {
     }
   }
 
-  static async remove(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async remove(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const listingId = validateListingIdParam(req.params.id as string);
       await deleteListing(listingId);
