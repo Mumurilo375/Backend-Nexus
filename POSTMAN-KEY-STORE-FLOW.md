@@ -22,7 +22,7 @@ URL: {{baseUrl}}/auth/login
 Body (JSON):
 
 {
-  "email": "usuario.teste@nexus.com",
+  "email": "teste@nexus.com",
   "password": "Senha@123"
 }
 
@@ -89,7 +89,7 @@ pm.test("status 201", function () {
 });
 
 const json = pm.response.json();
-pm.environment.set("orderId", json.id);
+pm.environment.set("orderId", json.order.id);
 
 ## 8) Pedidos - listar
 
