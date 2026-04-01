@@ -5,7 +5,7 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();
     const passwordHash =
-      "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi";
+      "scrypt:nexusseed2026salt:17ac788a6756031c38aecea5c42ab220c42c1b82cdb51802a4d5a4890be8e934faaf9d9ae2a7b533d6a68b5ee2b07cb6eec8796d3bf4363c0ad333dafa456140";
 
     const users = [
       {

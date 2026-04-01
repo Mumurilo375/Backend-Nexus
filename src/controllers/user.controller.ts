@@ -16,6 +16,18 @@ function getAuthenticatedUserId(req: Request): number {
   return req.user.id;
 }
 
+function ensureOwnerOrAdmin(req: Request, targetUserId: number): void {
+  const authUser = req.user;
+
+  if (!authUser) {
+    throw new AppError(401, "UNAUTHORIZED", "User not authenticated");
+  }
+
+  if (authUser.id !== targetUserId && !authUser.isAdmin) {
+    throw new AppError(403, "FORBIDDEN", "You can only view your own account");
+  }
+}
+
 class UserController {
   static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
@@ -31,6 +43,7 @@ class UserController {
   static async get(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = validateIdParam(req.params.id as string);
+      ensureOwnerOrAdmin(req, userId);
       const user = await getUserById(userId);
       res.status(200).json(user);
     } catch (error) {
