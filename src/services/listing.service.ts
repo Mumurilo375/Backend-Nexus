@@ -11,7 +11,11 @@ import PromotionListing from "../models/PromotionListing";
 import { col, fn, Op } from "sequelize";
 import { AppError } from "../utils/app-error";
 import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
-import { CreateListingInput, ListListingsQuery, UpdateListingInput } from "../validators/listing.validator";
+import {
+  CreateListingInput,
+  ListListingsQuery,
+  UpdateListingInput,
+} from "../validators/listing.validator";
 
 const LISTING_INCLUDE = [
   { model: Games, as: "game" },
@@ -117,45 +121,47 @@ export async function getListingDetailsById(id: number) {
   }
 
   const listingData = listing.toJSON() as Record<string, unknown>;
-  const game = (listingData.game as Record<string, unknown> | undefined) ?? undefined;
+  const game =
+    (listingData.game as Record<string, unknown> | undefined) ?? undefined;
   const gameId = Number(listing.get("gameId"));
 
   const now = new Date();
 
-  const [stock, reviewsCount, averageRatingRow, promotionLinks] = await Promise.all([
-    countListingStock(id),
-    Review.count({ where: { gameId } }),
-    Review.findOne({
-      where: { gameId },
-      attributes: [[fn("AVG", col("rating")), "averageRating"]],
-      raw: true,
-    }) as Promise<{ averageRating: string | null } | null>,
-    PromotionListing.findAll({
-      where: { listingId: id },
-      include: [
-        {
-          model: Promotion,
-          as: "promotion",
-          attributes: [
-            "id",
-            "name",
-            "description",
-            "discountPercentage",
-            "startDate",
-            "endDate",
-            "isActive",
-          ],
-          required: true,
-          where: {
-            isActive: true,
-            startDate: { [Op.lte]: now },
-            endDate: { [Op.gte]: now },
+  const [stock, reviewsCount, averageRatingRow, promotionLinks] =
+    await Promise.all([
+      countListingStock(id),
+      Review.count({ where: { gameId } }),
+      Review.findOne({
+        where: { gameId },
+        attributes: [[fn("AVG", col("rating")), "averageRating"]],
+        raw: true,
+      }) as Promise<{ averageRating: string | null } | null>,
+      PromotionListing.findAll({
+        where: { listingId: id },
+        include: [
+          {
+            model: Promotion,
+            as: "promotion",
+            attributes: [
+              "id",
+              "name",
+              "description",
+              "discountPercentage",
+              "startDate",
+              "endDate",
+              "isActive",
+            ],
+            required: true,
+            where: {
+              isActive: true,
+              startDate: { [Op.lte]: now },
+              endDate: { [Op.gte]: now },
+            },
           },
-        },
-      ],
-      order: [["id", "DESC"]],
-    }),
-  ]);
+        ],
+        order: [["id", "DESC"]],
+      }),
+    ]);
 
   const activePromotions = promotionLinks
     .map((link) => link.get("promotion") as Promotion | undefined)
@@ -163,7 +169,9 @@ export async function getListingDetailsById(id: number) {
     .map((promotion) => promotion.toJSON());
 
   const maxDiscountPercentage = activePromotions.reduce((max, promotion) => {
-    const discount = toMoneyNumber((promotion as Record<string, unknown>).discountPercentage);
+    const discount = toMoneyNumber(
+      (promotion as Record<string, unknown>).discountPercentage,
+    );
     return discount > max ? discount : max;
   }, 0);
 
@@ -231,7 +239,11 @@ export async function createListing(input: CreateListingInput) {
   });
 
   if (existing) {
-    throw new AppError(409, "LISTING_ALREADY_EXISTS", "Listing already exists for this game and platform");
+    throw new AppError(
+      409,
+      "LISTING_ALREADY_EXISTS",
+      "Listing already exists for this game and platform",
+    );
   }
 
   return GamePlatformListing.create({
