@@ -22,7 +22,7 @@ export async function listGames(query: ListGamesQuery) {
     where: query.q
       ? {
           title: {
-            [Op.like]: `%${query.q}%`,
+            [Op.iLike]: `%${query.q}%`,
           },
         }
       : undefined,

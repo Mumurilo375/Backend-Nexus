@@ -56,17 +56,6 @@ function validateCpf(raw: string): string {
     throw new AppError(400, "VALIDATION_ERROR", "Invalid CPF");
   }
 
-  for (let t = 9; t <= 10; t++) {
-    let sum = 0;
-    for (let i = 0; i < t; i++) {
-      sum += Number(cpf[i]) * (t + 1 - i);
-    }
-    const digit = ((sum * 10) % 11) % 10;
-    if (Number(cpf[t]) !== digit) {
-      throw new AppError(400, "VALIDATION_ERROR", "Invalid CPF");
-    }
-  }
-
   return cpf;
 }
 
