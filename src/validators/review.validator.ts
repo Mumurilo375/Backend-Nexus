@@ -1,6 +1,8 @@
 import { AppError } from "../utils/app-error";
 import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
 
+export const REVIEW_COMMENT_MAX_LENGTH = 500;
+
 export interface CreateReviewInput {
   gameId: number;
   rating: number;
@@ -26,6 +28,18 @@ function requireString(value: unknown, field: string): string {
   return text;
 }
 
+function validateComment(value: unknown): string {
+  const comment = requireString(value, "comment");
+  if (comment.length > REVIEW_COMMENT_MAX_LENGTH) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      `comment must have at most ${REVIEW_COMMENT_MAX_LENGTH} characters`,
+    );
+  }
+  return comment;
+}
+
 function validateRating(value: unknown): number {
   const rating = Number(value);
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
@@ -48,7 +62,7 @@ export function validateCreateReviewInput(body: unknown): CreateReviewInput {
   return {
     gameId: validatePositiveIdParam(String(requestBody.gameId ?? "")),
     rating: validateRating(requestBody.rating),
-    comment: requireString(requestBody.comment, "comment"),
+    comment: validateComment(requestBody.comment),
   };
 }
 
@@ -61,7 +75,7 @@ export function validateUpdateReviewInput(body: unknown): UpdateReviewInput {
 
   return {
     rating: validateRating(requestBody.rating),
-    comment: requireString(requestBody.comment, "comment"),
+    comment: validateComment(requestBody.comment),
   };
 }
 
