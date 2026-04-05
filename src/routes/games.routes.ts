@@ -6,6 +6,7 @@ import { authMiddleware } from "../middlewares/auth.middleware";
 const gamesRouter = Router();
 
 gamesRouter.get("/", GameController.list);
+gamesRouter.get("/:id/details", GameController.details);
 gamesRouter.get("/:id", GameController.get);
 
 gamesRouter.post("/", authMiddleware, adminMiddleware, GameController.create);

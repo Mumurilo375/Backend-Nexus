@@ -1,5 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import { createGame, deleteGame, getGameById, listGames, updateGame } from "../services/game.service";
+import {
+  createGame,
+  deleteGame,
+  getGameById,
+  getGameDetailsById,
+  listGames,
+  updateGame,
+} from "../services/game.service";
 import {
   validateCreateGameInput,
   validateIdParam,
@@ -23,6 +30,16 @@ class GameController {
       const gameId = validateIdParam(req.params.id as string);
       const game = await getGameById(gameId);
       res.status(200).json(game);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async details(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const gameId = validateIdParam(req.params.id as string);
+      const gameDetails = await getGameDetailsById(gameId);
+      res.status(200).json(gameDetails);
     } catch (error) {
       next(error);
     }
