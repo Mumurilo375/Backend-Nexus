@@ -45,7 +45,7 @@ module.exports = {
         const gameKeyId = keyPool.shift();
 
         if (!gameKeyId) {
-          throw new Error(`Nao ha key disponivel para a listing ${listingId}.`);
+          throw new Error(`Não há key disponível para a listing ${listingId}.`);
         }
 
         const price = 49.99 + (listingId % 20);

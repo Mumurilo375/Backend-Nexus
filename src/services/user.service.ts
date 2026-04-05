@@ -6,7 +6,7 @@ import { CreateUserInput, ListUsersQuery, UpdateUserInput } from "../validators/
 
 // ── Helpers ─────────────────────────────────────────────────
 
-// Campos sensiveis nao devem sair na resposta da API.
+// Campos sensíveis não devem sair na resposta da API.
 const PUBLIC_USER_ATTRIBUTES = { exclude: ["passwordHash"] };
 
 async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
@@ -31,7 +31,7 @@ async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
   throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
 }
 
-// Em update, o proprio usuario pode manter seus dados atuais sem conflito.
+// Em update, o próprio usuário pode manter seus dados atuais sem conflito.
 async function checkDuplicateOnUpdate(userId: number, input: UpdateUserInput): Promise<void> {
   const conditions = [];
 
@@ -51,7 +51,7 @@ async function checkDuplicateOnUpdate(userId: number, input: UpdateUserInput): P
   throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
 }
 
-// Regra de autorizacao: usuario so pode alterar/deletar a propria conta.
+// Regra de autorização: usuário só pode alterar/deletar a própria conta.
 function ensureOwner(targetId: number, authId: number): void {
   if (targetId !== authId) {
     throw new AppError(403, "FORBIDDEN", "You can only manage your own account");

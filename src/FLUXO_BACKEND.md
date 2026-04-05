@@ -1,48 +1,48 @@
-# Fluxo Didatico do Backend Nexus
+# Fluxo Didático do Backend Nexus
 
-Este guia mostra o caminho de uma requisicao no backend de forma simples.
+Este guia mostra o caminho de uma requisição no backend de forma simples.
 
-## 1. Fluxo padrao (CRUD)
+## 1. Fluxo padrão (CRUD)
 
-Entrada da requisicao -> Route -> Controller -> Validator -> Service -> Model (Sequelize) -> Response
+Entrada da requisição -> Route -> Controller -> Validator -> Service -> Model (Sequelize) -> Response
 
-- Route: escolhe qual metodo do controller sera executado.
+- Route: escolhe qual método do controller será executado.
 - Controller: orquestra o fluxo; valida dados e chama service.
 - Validator: valida formato de entrada (body, query, params).
-- Service: aplica regra de negocio e acessa banco de dados.
+- Service: aplica regra de negócio e acessa banco de dados.
 - Model: representa as tabelas e faz queries no PostgreSQL via Sequelize.
 
 ## 2. Exemplo completo: GET /users?page=2&limit=10
 
 1. Route em src/routes/users.routes.ts chama UserController.list.
-2. Controller usa validateListUsersQuery(req.query) para validar paginacao.
+2. Controller usa validateListUsersQuery(req.query) para validar paginação.
 3. Service listUsers calcula offset e consulta Users.findAndCountAll.
 4. Response retorna items + meta (page, limit, total, totalPages).
 
 ## 3. Como ler req.query, req.params e req.body
 
-- req.query: parametros da URL apos ?
+- req.query: parâmetros da URL após ?
   Exemplo: /users?page=2&limit=10
-- req.params: parametros dinamicos da rota
+- req.params: parâmetros dinâmicos da rota
   Exemplo: /users/:id -> req.params.id
-- req.body: dados enviados no corpo da requisicao (POST/PUT)
+- req.body: dados enviados no corpo da requisição (POST/PUT)
 
-## 4. Regra pratica para validacao
+## 4. Regra prática para validação
 
 - Validator valida formato e tipos de entrada.
-  Exemplo: id precisa ser inteiro positivo, email precisa ter formato valido.
-- Service valida regra de negocio/estado.
-  Exemplo: email/username/CPF nao podem duplicar no banco.
+  Exemplo: id precisa ser inteiro positivo, email precisa ter formato válido.
+- Service valida regra de negócio/estado.
+  Exemplo: email/username/CPF não podem duplicar no banco.
 
-## 5. Regra pratica para autenticacao
+## 5. Regra prática para autenticação
 
-- Rota com authMiddleware exige token Bearer valido.
-- Rota sem authMiddleware e publica.
-- No modulo users:
-  - GET /users e GET /users/:id sao publicas.
-  - PUT /users/:id e DELETE /users/:id sao protegidas.
+- Rota com authMiddleware exige token Bearer válido.
+- Rota sem authMiddleware é pública.
+- No módulo users:
+  - GET /users e GET /users/:id são públicas.
+  - PUT /users/:id e DELETE /users/:id são protegidas.
 
-## 6. Mapa rapido de endpoints
+## 6. Mapa rápido de endpoints
 
 - Auth
   - POST /auth/login

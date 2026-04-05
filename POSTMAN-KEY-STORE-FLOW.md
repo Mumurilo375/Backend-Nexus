@@ -1,10 +1,10 @@
 # Fluxo real de teste no Postman (Loja de Keys)
 
-Este roteiro segue uma compra real: login -> descobrir listing -> carrinho -> checkout -> pedidos -> biblioteca -> historico.
+Este roteiro segue uma compra real: login -> descobrir listing -> carrinho -> checkout -> pedidos -> biblioteca -> histórico.
 
-## 0) Preparacao (Environment do Postman)
+## 0) Preparação (Environment do Postman)
 
-Crie um Environment com variaveis:
+Crie um Environment com variáveis:
 
 - baseUrl = http://localhost:8080
 - token =
@@ -133,14 +133,14 @@ URL: {{baseUrl}}/library/keys?page=1&limit=10
 Headers:
 - Authorization: Bearer {{token}}
 
-## 13) Historico de compras
+## 13) Histórico de compras
 
 Metodo: GET
 URL: {{baseUrl}}/history/purchases?page=1&limit=10
 Headers:
 - Authorization: Bearer {{token}}
 
-## 14) Carrinho - confirmar que esvaziou apos checkout
+## 14) Carrinho - confirmar que esvaziou após checkout
 
 Metodo: GET
 URL: {{baseUrl}}/cart
@@ -149,7 +149,7 @@ Headers:
 
 ## 15) Testes extras de carrinho
 
-### 15.1 Adicionar item e remover item especifico
+### 15.1 Adicionar item e remover item específico
 
 1. POST {{baseUrl}}/cart/{{listingId}}
 2. DELETE {{baseUrl}}/cart/{{listingId}}
@@ -164,10 +164,10 @@ URL: {{baseUrl}}/cart
 Headers:
 - Authorization: Bearer {{token}}
 
-## Erros esperados uteis para validar regra
+## Erros esperados úteis para validar regra
 
 - Checkout com carrinho vazio: 400 CART_EMPTY
 - Adicionar listing inexistente: 404 LISTING_NOT_FOUND
-- Buscar pedido de outro usuario: 404 ORDER_NOT_FOUND
-- Buscar item de pedido de outro usuario: 404 ORDER_ITEM_NOT_FOUND
-- Token ausente/invalido: 401 UNAUTHORIZED
+- Buscar pedido de outro usuário: 404 ORDER_NOT_FOUND
+- Buscar item de pedido de outro usuário: 404 ORDER_ITEM_NOT_FOUND
+- Token ausente/inválido: 401 UNAUTHORIZED
