@@ -1,5 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import {
+  bulkCreateGameKeys,
+  bulkDeleteGameKeys,
   createGameKey,
   deleteGameKey,
   getGameKeyById,
@@ -7,6 +9,8 @@ import {
   updateGameKey,
 } from "../services/game-key.service";
 import {
+  validateBulkCreateGameKeysInput,
+  validateBulkDeleteGameKeysInput,
   validateCreateGameKeyInput,
   validateGameKeyIdParam,
   validateListGameKeysQuery,
@@ -50,6 +54,26 @@ class GameKeyController {
       const input = validateUpdateGameKeyInput(req.body);
       const key = await updateGameKey(gameKeyId, input);
       res.status(200).json(key);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async bulkCreate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const input = validateBulkCreateGameKeysInput(req.body);
+      const result = await bulkCreateGameKeys(input);
+      res.status(201).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async bulkDelete(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const input = validateBulkDeleteGameKeysInput(req.body);
+      const result = await bulkDeleteGameKeys(input);
+      res.status(200).json(result);
     } catch (error) {
       next(error);
     }

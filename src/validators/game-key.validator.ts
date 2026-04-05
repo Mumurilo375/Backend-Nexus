@@ -10,6 +10,16 @@ export interface UpdateGameKeyInput {
   status: string;
 }
 
+export interface BulkCreateGameKeysInput {
+  listingId: number;
+  keyValues: string[];
+}
+
+export interface BulkDeleteGameKeysInput {
+  listingId: number;
+  ids: number[];
+}
+
 export interface ListGameKeysQuery {
   page: number;
   limit: number;
@@ -22,6 +32,14 @@ function requireString(value: unknown, field: string): string {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
   }
   return text;
+}
+
+function requireArray(value: unknown, field: string): unknown[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new AppError(400, "VALIDATION_ERROR", `${field} must be a non-empty array`);
+  }
+
+  return value;
 }
 
 export function validateGameKeyIdParam(id: string): number {
@@ -38,6 +56,36 @@ export function validateCreateGameKeyInput(body: unknown): CreateGameKeyInput {
   return {
     listingId: validatePositiveIdParam(String(requestBody.listingId ?? "")),
     keyValue: requireString(requestBody.keyValue, "keyValue"),
+  };
+}
+
+export function validateBulkCreateGameKeysInput(body: unknown): BulkCreateGameKeysInput {
+  if (!body || typeof body !== "object") {
+    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+  }
+
+  const requestBody = body as Record<string, unknown>;
+
+  return {
+    listingId: validatePositiveIdParam(String(requestBody.listingId ?? "")),
+    keyValues: requireArray(requestBody.keyValues, "keyValues").map((value) =>
+      String(value ?? ""),
+    ),
+  };
+}
+
+export function validateBulkDeleteGameKeysInput(body: unknown): BulkDeleteGameKeysInput {
+  if (!body || typeof body !== "object") {
+    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+  }
+
+  const requestBody = body as Record<string, unknown>;
+
+  return {
+    listingId: validatePositiveIdParam(String(requestBody.listingId ?? "")),
+    ids: requireArray(requestBody.ids, "ids").map((value) =>
+      validatePositiveIdParam(String(value ?? "")),
+    ),
   };
 }
 
