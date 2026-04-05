@@ -47,6 +47,7 @@ GameKey.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            field: "created_at",
         },
     },
     {
@@ -56,6 +57,7 @@ GameKey.init(
         indexes: [
             { fields: ["listing_id"] },
             { fields: ["status"] },
+            { unique: true, fields: ["key_value"] },
             { fields: ["listing_id", "status"] },
         ],
     }
