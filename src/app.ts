@@ -1,6 +1,9 @@
 import cors, { CorsOptions } from "cors";
 import express from "express";
-import { errorMiddleware, notFoundMiddleware } from "./middlewares/error.middleware";
+import {
+  errorMiddleware,
+  notFoundMiddleware,
+} from "./middlewares/error.middleware";
 import routes from "./routes";
 
 const app = express();
@@ -17,7 +20,11 @@ const allowedOrigins = getAllowedOrigins();
 const corsOptions: CorsOptions = {
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   origin(origin, callback) {
-    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+    if (
+      !origin ||
+      allowedOrigins.length === 0 ||
+      allowedOrigins.includes(origin)
+    ) {
       callback(null, true);
       return;
     }
