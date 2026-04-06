@@ -6,6 +6,7 @@ const cartRouter = Router();
 
 cartRouter.get("/", authMiddleware, CartController.list);
 cartRouter.post("/:listingId", authMiddleware, CartController.add);
+cartRouter.patch("/:listingId", authMiddleware, CartController.update);
 cartRouter.delete("/:listingId", authMiddleware, CartController.remove);
 cartRouter.delete("/", authMiddleware, CartController.clear);
 

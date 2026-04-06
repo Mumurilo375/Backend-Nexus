@@ -5,6 +5,7 @@ class CartItem extends Model {
     declare id: number;
     declare userId: number;
     declare listingId: number;
+    declare quantity: number;
     declare addedAt: Date;
 }
 
@@ -24,6 +25,11 @@ CartItem.init(
             type: DataTypes.INTEGER,
             allowNull: false,
             field: "listing_id",
+        },
+        quantity: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            defaultValue: 1,
         },
         addedAt: {
             type: DataTypes.DATE,

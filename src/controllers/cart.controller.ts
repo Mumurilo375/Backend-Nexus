@@ -4,9 +4,10 @@ import {
   clearUserCart,
   listUserCart,
   removeListingFromCart,
+  updateCartItemQuantity,
 } from "../services/cart.service";
 import { requireAuthenticatedUserId } from "../utils/auth-user";
-import { validateListingIdParam } from "../validators/cart.validator";
+import { validateCartQuantityInput, validateListingIdParam } from "../validators/cart.validator";
 
 class CartController {
   static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -33,6 +34,21 @@ class CartController {
       const listingId = validateListingIdParam(req.params.listingId as string);
       await removeListingFromCart(requireAuthenticatedUserId(req), listingId);
       res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const listingId = validateListingIdParam(req.params.listingId as string);
+      const quantity = validateCartQuantityInput(req.body);
+      const item = await updateCartItemQuantity(
+        requireAuthenticatedUserId(req),
+        listingId,
+        quantity,
+      );
+      res.status(200).json(item);
     } catch (error) {
       next(error);
     }

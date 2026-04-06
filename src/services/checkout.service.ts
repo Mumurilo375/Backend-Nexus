@@ -85,7 +85,7 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       throw new AppError(400, "CART_EMPTY", "Cart is empty");
     }
 
-    const selectedItems: Array<{ listing: GamePlatformListing; gameKey: GameKey; finalPrice: number }> = [];
+    const selectedItems: Array<{ listing: GamePlatformListing; gameKeys: GameKey[]; finalPrice: number }> = [];
     let subtotal = 0;
     let discountAmount = 0;
     const now = new Date();
@@ -104,17 +104,20 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
         throw new AppError(400, "INVALID_PRICE", "Listing price must be greater than 0");
       }
 
-      const gameKey = await GameKey.findOne({
+      const quantity = Math.max(1, toNumber(cartItem.get("quantity")));
+
+      const gameKeys = await GameKey.findAll({
         where: {
           listingId,
           status: "available",
         },
         order: [["id", "ASC"]],
+        limit: quantity,
         transaction,
         lock: transaction.LOCK.UPDATE,
       });
 
-      if (!gameKey) {
+      if (gameKeys.length < quantity) {
         throw new AppError(409, "OUT_OF_STOCK", "No available keys for one of the selected items");
       }
 
@@ -122,10 +125,10 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       const lineDiscount = roundMoney((basePrice * discountPercentage) / 100);
       const lineFinalPrice = roundMoney(basePrice - lineDiscount);
 
-      selectedItems.push({ listing, gameKey, finalPrice: lineFinalPrice });
+      selectedItems.push({ listing, gameKeys, finalPrice: lineFinalPrice });
 
-      subtotal += basePrice;
-      discountAmount += lineDiscount;
+      subtotal += roundMoney(basePrice * quantity);
+      discountAmount += roundMoney(lineDiscount * quantity);
     }
 
     subtotal = roundMoney(subtotal);
@@ -148,34 +151,36 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
     );
 
     for (const selected of selectedItems) {
-      await selected.gameKey.update(
-        {
-          status: "sold",
-          reservedAt: null,
-          soldAt: now,
-        },
-        { transaction }
-      );
+      for (const gameKey of selected.gameKeys) {
+        await gameKey.update(
+          {
+            status: "sold",
+            reservedAt: null,
+            soldAt: now,
+          },
+          { transaction }
+        );
 
-      const orderItem = await OrderItem.create(
-        {
-          orderId: Number(order.get("id")),
-          listingId: Number(selected.listing.get("id")),
-          gameKeyId: Number(selected.gameKey.get("id")),
-          price: selected.finalPrice,
-        },
-        { transaction }
-      );
+        const orderItem = await OrderItem.create(
+          {
+            orderId: Number(order.get("id")),
+            listingId: Number(selected.listing.get("id")),
+            gameKeyId: Number(gameKey.get("id")),
+            price: selected.finalPrice,
+          },
+          { transaction }
+        );
 
-      await DeliveredKey.create(
-        {
-          userId,
-          orderItemId: Number(orderItem.get("id")),
-          gameKeyId: Number(selected.gameKey.get("id")),
-          deliveredAt: now,
-        },
-        { transaction }
-      );
+        await DeliveredKey.create(
+          {
+            userId,
+            orderItemId: Number(orderItem.get("id")),
+            gameKeyId: Number(gameKey.get("id")),
+            deliveredAt: now,
+          },
+          { transaction }
+        );
+      }
     }
 
     await CartItem.destroy({ where: { userId }, transaction });
