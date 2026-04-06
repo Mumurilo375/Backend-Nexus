@@ -1,5 +1,4 @@
 import GamePlatformListing from "../models/GamePlatformListing";
-import GameKey from "../models/GameKey";
 import Games from "../models/Games";
 import Platform from "../models/Platform";
 import Categories from "../models/Category";
@@ -11,6 +10,7 @@ import PromotionListing from "../models/PromotionListing";
 import { col, fn, Op } from "sequelize";
 import { AppError } from "../utils/app-error";
 import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
+import { countListingStockSummary } from "../utils/stock";
 import {
   CreateListingInput,
   ListListingsQuery,
@@ -48,21 +48,6 @@ function toMoneyNumber(value: unknown): number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-async function countListingStock(listingId: number) {
-  const [available, reserved, sold] = await Promise.all([
-    GameKey.count({ where: { listingId, status: "available" } }),
-    GameKey.count({ where: { listingId, status: "reserved" } }),
-    GameKey.count({ where: { listingId, status: "sold" } }),
-  ]);
-
-  return {
-    available,
-    reserved,
-    sold,
-    total: available + reserved + sold,
-  };
 }
 
 async function findListingOrFail(id: number): Promise<GamePlatformListing> {
@@ -104,7 +89,7 @@ export async function getListingById(id: number) {
 
 export async function getListingStockById(id: number) {
   await findListingOrFail(id);
-  const stock = await countListingStock(id);
+  const stock = await countListingStockSummary(id);
 
   return {
     listingId: id,
@@ -130,7 +115,7 @@ export async function getListingDetailsById(id: number) {
 
   const [stock, reviewsCount, averageRatingRow, promotionLinks] =
     await Promise.all([
-      countListingStock(id),
+      countListingStockSummary(id),
       Review.count({ where: { gameId } }),
       Review.findOne({
         where: { gameId },
@@ -164,12 +149,12 @@ export async function getListingDetailsById(id: number) {
       }),
     ]);
 
-  const activePromotions = promotionLinks
-    .map((link) => link.get("promotion") as Promotion | undefined)
-    .filter((promotion): promotion is Promotion => Boolean(promotion))
-    .map((promotion) => promotion.toJSON());
+  const activePromotions = (promotionLinks as PromotionListing[])
+    .map((link: PromotionListing) => link.get("promotion") as Promotion | undefined)
+    .filter((promotion: Promotion | undefined): promotion is Promotion => Boolean(promotion))
+    .map((promotion: Promotion) => promotion.toJSON());
 
-  const maxDiscountPercentage = activePromotions.reduce((max, promotion) => {
+  const maxDiscountPercentage = activePromotions.reduce((max: number, promotion) => {
     const discount = toMoneyNumber(
       (promotion as Record<string, unknown>).discountPercentage,
     );

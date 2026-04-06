@@ -5,11 +5,11 @@ import Tags from "../models/Tags";
 import GamePlatformListing from "../models/GamePlatformListing";
 import Platform from "../models/Platform";
 import GameImages from "../models/Game_images";
-import GameKey from "../models/GameKey";
 import Promotion from "../models/Promotion";
 import PromotionListing from "../models/PromotionListing";
 import Review from "../models/Review";
 import { AppError } from "../utils/app-error";
+import { countListingStockSummary } from "../utils/stock";
 import { CreateGameInput, ListGamesQuery, UpdateGameInput } from "../validators/game.validator";
 
 async function findGameOrFail(id: number): Promise<Games> {
@@ -39,21 +39,6 @@ function toMoneyNumber(value: unknown): number {
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-async function countListingStock(listingId: number) {
-  const [available, reserved, sold] = await Promise.all([
-    GameKey.count({ where: { listingId, status: "available" } }),
-    GameKey.count({ where: { listingId, status: "reserved" } }),
-    GameKey.count({ where: { listingId, status: "sold" } }),
-  ]);
-
-  return {
-    available,
-    reserved,
-    sold,
-    total: available + reserved + sold,
-  };
 }
 
 async function getActivePromotionsByListingId(listingId: number) {
@@ -112,7 +97,7 @@ function sortPlatformListings(listings: Array<Record<string, unknown>>) {
 async function enrichPlatformListing(listing: Record<string, unknown>) {
   const listingId = Number(listing.id ?? 0);
   const [stock, activePromotions] = await Promise.all([
-    countListingStock(listingId),
+    countListingStockSummary(listingId),
     getActivePromotionsByListingId(listingId),
   ]);
 

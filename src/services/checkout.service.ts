@@ -11,6 +11,7 @@ import Platform from "../models/Platform";
 import Promotion from "../models/Promotion";
 import PromotionListing from "../models/PromotionListing";
 import { AppError } from "../utils/app-error";
+import { findAvailableGameKeysForCheckout } from "../utils/stock";
 import { CheckoutInput } from "../validators/checkout.validator";
 
 function toNumber(value: unknown): number {
@@ -52,7 +53,7 @@ async function getActiveDiscountPercentage(listingId: number, transaction: Trans
     const discount = toNumber(promotion?.get("discountPercentage"));
 
     if (discount < 0 || discount > 100) {
-      throw new AppError(400, "VALIDATION_ERROR", "Invalid promotion discount percentage");
+      throw new AppError(400, "VALIDATION_ERROR", "Percentual de promocao invalido.");
     }
 
     if (discount > maxDiscount) {
@@ -82,7 +83,7 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
     });
 
     if (cartItems.length === 0) {
-      throw new AppError(400, "CART_EMPTY", "Cart is empty");
+      throw new AppError(400, "CART_EMPTY", "Seu carrinho esta vazio.");
     }
 
     const selectedItems: Array<{ listing: GamePlatformListing; gameKeys: GameKey[]; finalPrice: number }> = [];
@@ -94,31 +95,34 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
       const listing = cartItem.listing;
 
       if (!listing || !listing.get("isActive")) {
-        throw new AppError(409, "LISTING_UNAVAILABLE", "A cart item is unavailable");
+        throw new AppError(
+          409,
+          "LISTING_UNAVAILABLE",
+          "Um item do seu carrinho nao esta mais disponivel.",
+        );
       }
 
       const listingId = Number(listing.get("id"));
       const basePrice = toNumber(listing.get("price"));
 
       if (basePrice <= 0) {
-        throw new AppError(400, "INVALID_PRICE", "Listing price must be greater than 0");
+        throw new AppError(400, "INVALID_PRICE", "Preco invalido para um item do carrinho.");
       }
 
       const quantity = Math.max(1, toNumber(cartItem.get("quantity")));
 
-      const gameKeys = await GameKey.findAll({
-        where: {
-          listingId,
-          status: "available",
-        },
-        order: [["id", "ASC"]],
-        limit: quantity,
+      const gameKeys = await findAvailableGameKeysForCheckout(
+        listingId,
+        quantity,
         transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
+      );
 
       if (gameKeys.length < quantity) {
-        throw new AppError(409, "OUT_OF_STOCK", "No available keys for one of the selected items");
+        throw new AppError(
+          409,
+          "OUT_OF_STOCK",
+          "Um ou mais itens do carrinho ficaram sem estoque suficiente.",
+        );
       }
 
       const discountPercentage = await getActiveDiscountPercentage(listingId, transaction);
@@ -207,7 +211,11 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
     });
 
     if (!createdOrder) {
-      throw new AppError(500, "ORDER_NOT_FOUND_AFTER_CREATE", "Order was created but could not be loaded");
+      throw new AppError(
+        500,
+        "ORDER_NOT_FOUND_AFTER_CREATE",
+        "O pedido foi criado, mas nao foi possivel carregar os dados finais.",
+      );
     }
 
     return {

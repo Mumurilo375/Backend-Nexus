@@ -3,6 +3,7 @@ import GameKey from "../models/GameKey";
 import GamePlatformListing from "../models/GamePlatformListing";
 import { AppError } from "../utils/app-error";
 import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
+import { countListingStockSummary } from "../utils/stock";
 import {
   BulkCreateGameKeysInput,
   BulkDeleteGameKeysInput,
@@ -10,13 +11,6 @@ import {
   ListGameKeysQuery,
   UpdateGameKeyInput,
 } from "../validators/game-key.validator";
-
-type ListingStockSummary = {
-  available: number;
-  reserved: number;
-  sold: number;
-  total: number;
-};
 
 async function findGameKeyOrFail(id: number): Promise<GameKey> {
   const gameKey = await GameKey.findByPk(id);
@@ -32,21 +26,6 @@ async function findListingOrFail(id: number): Promise<GamePlatformListing> {
     throw new AppError(404, "LISTING_NOT_FOUND", "Listing not found");
   }
   return listing;
-}
-
-async function getListingStock(listingId: number): Promise<ListingStockSummary> {
-  const [available, reserved, sold] = await Promise.all([
-    GameKey.count({ where: { listingId, status: "available" } }),
-    GameKey.count({ where: { listingId, status: "reserved" } }),
-    GameKey.count({ where: { listingId, status: "sold" } }),
-  ]);
-
-  return {
-    available,
-    reserved,
-    sold,
-    total: available + reserved + sold,
-  };
 }
 
 export async function listGameKeys(query: ListGameKeysQuery) {
@@ -133,7 +112,7 @@ export async function bulkCreateGameKeys(input: BulkCreateGameKeysInput) {
   return {
     createdCount: newKeys.length,
     skippedCount: rawKeyValues.length - newKeys.length,
-    stock: await getListingStock(input.listingId),
+    stock: await countListingStockSummary(input.listingId),
   };
 }
 
@@ -187,6 +166,6 @@ export async function bulkDeleteGameKeys(input: BulkDeleteGameKeysInput) {
 
   return {
     deletedCount: ids.length,
-    stock: await getListingStock(input.listingId),
+    stock: await countListingStockSummary(input.listingId),
   };
 }
