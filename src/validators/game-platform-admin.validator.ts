@@ -35,6 +35,20 @@ function requireArray(value: unknown, field: string) {
   return value;
 }
 
+function normalizeGameKeyValue(value: unknown) {
+  const rawKeyValue = String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  if (rawKeyValue.length !== 12) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Each key must use the format XXXX-XXXX-XXXX",
+    );
+  }
+
+  return rawKeyValue.match(/.{1,4}/g)?.join("-") ?? rawKeyValue;
+}
+
 export function validatePlatformIdParam(id: string) {
   return validatePositiveIdParam(id);
 }
@@ -74,8 +88,6 @@ export function validateAddGamePlatformKeysInput(body: unknown): AddGamePlatform
   const requestBody = body as Record<string, unknown>;
 
   return {
-    keyValues: requireArray(requestBody.keyValues, "keyValues").map((value) =>
-      String(value ?? ""),
-    ),
+    keyValues: requireArray(requestBody.keyValues, "keyValues").map(normalizeGameKeyValue),
   };
 }
