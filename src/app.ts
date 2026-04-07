@@ -5,6 +5,7 @@ import {
   notFoundMiddleware,
 } from "./middlewares/error.middleware";
 import routes from "./routes";
+import { getStorageRoot } from "./utils/media-storage";
 
 const app = express();
 
@@ -35,6 +36,7 @@ const corsOptions: CorsOptions = {
 
 app.use(cors(corsOptions));
 app.use(express.json());
+app.use("/media", express.static(getStorageRoot()));
 app.use(routes);
 app.use(notFoundMiddleware);
 app.use(errorMiddleware);

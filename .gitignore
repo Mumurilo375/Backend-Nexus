@@ -34,4 +34,8 @@ coverage/
 # Arquivos temporários / gerados
 relationships-view.html
 regras-negocio-visao-senior.md
+storage/
+storage/tmp/*
+storage/games/*
+!storage/games/.gitignore
 
