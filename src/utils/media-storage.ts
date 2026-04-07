@@ -39,12 +39,24 @@ async function removeEmptyDirectories(startDirectory: string) {
   let currentDirectory = startDirectory;
 
   while (currentDirectory.startsWith(storageRoot) && currentDirectory !== storageRoot) {
-    const entries = await fs.readdir(currentDirectory);
+    let entries: string[];
+
+    try {
+      entries = await fs.readdir(currentDirectory);
+    } catch {
+      return;
+    }
+
     if (entries.length > 0) {
       return;
     }
 
-    await fs.rmdir(currentDirectory);
+    try {
+      await fs.rmdir(currentDirectory);
+    } catch {
+      return;
+    }
+
     currentDirectory = path.dirname(currentDirectory);
   }
 }
@@ -104,7 +116,9 @@ export async function deleteManagedMedia(value?: string | null) {
 }
 
 export async function deleteManagedMediaList(values: Array<string | null | undefined>) {
-  await Promise.all(values.map((value) => deleteManagedMedia(value)));
+  for (const value of values) {
+    await deleteManagedMedia(value);
+  }
 }
 
 export async function deleteTemporaryUpload(file?: Express.Multer.File | null) {
@@ -159,3 +173,5 @@ export async function ensureManagedLegacyMedia(
 
   return createManagedMediaUrl(normalizedTarget);
 }
+
+
