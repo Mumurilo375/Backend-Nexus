@@ -69,8 +69,17 @@ export async function listListings(query: ListListingsQuery) {
     include: LISTING_INCLUDE,
   });
 
+  const items = query.includeStock
+    ? await Promise.all(
+        result.rows.map(async (listing) => ({
+          ...listing.toJSON(),
+          stock: await countListingStockSummary(listing.id),
+        })),
+      )
+    : result.rows;
+
   return {
-    items: result.rows,
+    items,
     meta: buildPaginationMeta(query, result.count),
   };
 }

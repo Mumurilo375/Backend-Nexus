@@ -16,6 +16,7 @@ export interface ListListingsQuery {
   page: number;
   limit: number;
   gameId?: number;
+  includeStock?: boolean;
 }
 
 function validatePrice(value: unknown): number {
@@ -24,6 +25,26 @@ function validatePrice(value: unknown): number {
     throw new AppError(400, "VALIDATION_ERROR", "price must be greater than 0");
   }
   return price;
+}
+
+function validateBooleanQuery(value: unknown, fieldName: string): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw new AppError(400, "VALIDATION_ERROR", `${fieldName} must be a boolean`);
 }
 
 export function validateListingIdParam(id: string): number {
@@ -73,13 +94,21 @@ export function validateUpdateListingInput(body: unknown): UpdateListingInput {
 export function validateListListingsQuery(query: unknown): ListListingsQuery {
   const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
   const pagination = validatePaginationQuery(safeQuery);
+  const includeStock =
+    safeQuery.includeStock === undefined
+      ? undefined
+      : validateBooleanQuery(safeQuery.includeStock, "includeStock");
 
   if (safeQuery.gameId === undefined) {
-    return pagination;
+    return {
+      ...pagination,
+      includeStock,
+    };
   }
 
   return {
     ...pagination,
     gameId: validatePositiveIdParam(String(safeQuery.gameId)),
+    includeStock,
   };
 }
