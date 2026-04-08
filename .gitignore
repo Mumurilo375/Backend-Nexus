@@ -39,3 +39,4 @@ storage/tmp/*
 storage/games/*
 !storage/games/.gitignore
 
+configDeploy.md
