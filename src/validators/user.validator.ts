@@ -1,5 +1,8 @@
 import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
 
 // ── Interfaces ──────────────────────────────────────────────
 
@@ -28,6 +31,7 @@ export interface ListUsersQuery {
 // ── Helpers ─────────────────────────────────────────────────
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_AVATAR_URL_LENGTH = 2_000_000;
 
 function requireString(value: unknown, field: string): string {
   const str = String(value ?? "").trim();
@@ -61,27 +65,64 @@ function validateCpf(raw: string): string {
 
 function validatePasswordStrength(password: string): void {
   if (password.length < 8) {
-    throw new AppError(400, "VALIDATION_ERROR", "Password must have at least 8 characters");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Password must have at least 8 characters",
+    );
   }
   if (!/[a-z]/.test(password)) {
-    throw new AppError(400, "VALIDATION_ERROR", "Password must have a lowercase letter");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Password must have a lowercase letter",
+    );
   }
   if (!/[A-Z]/.test(password)) {
-    throw new AppError(400, "VALIDATION_ERROR", "Password must have an uppercase letter");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Password must have an uppercase letter",
+    );
   }
   if (!/\d/.test(password)) {
     throw new AppError(400, "VALIDATION_ERROR", "Password must have a number");
   }
   if (!/[^a-zA-Z0-9]/.test(password)) {
-    throw new AppError(400, "VALIDATION_ERROR", "Password must have a special character");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Password must have a special character",
+    );
   }
+}
+
+function normalizeAvatarUrl(value: unknown): string | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const normalized = String(value).trim();
+  if (!normalized) {
+    return null;
+  }
+
+  if (normalized.length > MAX_AVATAR_URL_LENGTH) {
+    throw new AppError(400, "VALIDATION_ERROR", "avatarUrl is too large");
+  }
+
+  return normalized;
 }
 
 // ── Validators ──────────────────────────────────────────────
 
 export function validateCreateUserInput(body: unknown): CreateUserInput {
   if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Request body must be an object",
+    );
   }
 
   const requestBody = body as Record<string, unknown>;
@@ -93,7 +134,11 @@ export function validateCreateUserInput(body: unknown): CreateUserInput {
   const cpf = validateCpf(requireString(requestBody.cpf, "cpf"));
 
   if (username.length < 3 || username.length > 50) {
-    throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "username must have 3 to 50 characters",
+    );
   }
 
   validatePasswordStrength(password);
@@ -104,13 +149,17 @@ export function validateCreateUserInput(body: unknown): CreateUserInput {
     password,
     fullName,
     cpf,
-    avatarUrl: requestBody.avatarUrl ? String(requestBody.avatarUrl) : null,
+    avatarUrl: normalizeAvatarUrl(requestBody.avatarUrl),
   };
 }
 
 export function validateUpdateUserInput(body: unknown): UpdateUserInput {
   if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "Request body must be an object",
+    );
   }
 
   const requestBody = body as Record<string, unknown>;
@@ -121,7 +170,11 @@ export function validateUpdateUserInput(body: unknown): UpdateUserInput {
 
   const username = requireString(requestBody.username, "username");
   if (username.length < 3 || username.length > 50) {
-    throw new AppError(400, "VALIDATION_ERROR", "username must have 3 to 50 characters");
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "username must have 3 to 50 characters",
+    );
   }
 
   const password = requireString(requestBody.password, "password");
@@ -135,14 +188,18 @@ export function validateUpdateUserInput(body: unknown): UpdateUserInput {
     password,
     fullName,
     cpf,
-    avatarUrl: requestBody.avatarUrl !== undefined
-      ? (requestBody.avatarUrl ? String(requestBody.avatarUrl) : null)
-      : undefined,
+    avatarUrl:
+      requestBody.avatarUrl !== undefined
+        ? normalizeAvatarUrl(requestBody.avatarUrl)
+        : undefined,
   };
 }
 
 export function validateListUsersQuery(query: unknown): ListUsersQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+  const safeQuery =
+    query && typeof query === "object"
+      ? (query as Record<string, unknown>)
+      : {};
   return validatePaginationQuery(safeQuery);
 }
 
