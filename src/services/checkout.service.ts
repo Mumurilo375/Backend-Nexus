@@ -121,7 +121,7 @@ export async function checkoutUserCart(userId: number, input: CheckoutInput) {
         throw new AppError(
           409,
           "OUT_OF_STOCK",
-          "Um ou mais itens do carrinho ficaram sem estoque suficiente.",
+          "O estoque do carrinho mudou. Revise as quantidades antes de finalizar o pedido.",
         );
       }
 

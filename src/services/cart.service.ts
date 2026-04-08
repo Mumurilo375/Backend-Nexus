@@ -13,6 +13,18 @@ function getCartQuantity(item: CartItem): number {
   return Math.max(1, toNumber(item.get("quantity")));
 }
 
+function getStockErrorMessage(availableStock: number) {
+  if (availableStock <= 0) {
+    return "Esse jogo ficou sem estoque no momento.";
+  }
+
+  if (availableStock === 1) {
+    return "So existe 1 unidade disponivel para esse jogo/plataforma.";
+  }
+
+  return `So existem ${availableStock} unidades disponiveis para esse jogo/plataforma.`;
+}
+
 async function getListingOrFail(listingId: number) {
   const listing = await GamePlatformListing.findByPk(listingId);
 
@@ -34,7 +46,7 @@ async function ensureAvailableStock(listingId: number, quantity: number) {
     throw new AppError(
       409,
       "OUT_OF_STOCK",
-      "Nao ha keys suficientes em estoque para essa quantidade.",
+      getStockErrorMessage(availableStock),
     );
   }
 }
@@ -126,10 +138,7 @@ export async function updateCartItemQuantity(userId: number, listingId: number, 
     throw new AppError(404, "CART_ITEM_NOT_FOUND", "Item nao encontrado no carrinho.");
   }
 
-  const currentQuantity = getCartQuantity(item);
-  if (quantity > currentQuantity) {
-    await ensureAvailableStock(listingId, quantity);
-  }
+  await ensureAvailableStock(listingId, quantity);
 
   await item.update({ quantity });
   return item;
