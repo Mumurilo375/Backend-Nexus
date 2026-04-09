@@ -17,7 +17,7 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   username: string;
-  password: string;
+  password?: string;
   fullName: string;
   cpf: string;
   avatarUrl?: string | null;
@@ -177,15 +177,26 @@ export function validateUpdateUserInput(body: unknown): UpdateUserInput {
     );
   }
 
-  const password = requireString(requestBody.password, "password");
-  validatePasswordStrength(password);
+  const rawPassword = requestBody.password;
+  const password =
+    rawPassword === undefined || rawPassword === null
+      ? undefined
+      : String(rawPassword).trim();
+
+  if (password !== undefined) {
+    if (!password) {
+      throw new AppError(400, "VALIDATION_ERROR", "password is required");
+    }
+
+    validatePasswordStrength(password);
+  }
 
   const fullName = requireString(requestBody.fullName, "fullName");
   const cpf = validateCpf(requireString(requestBody.cpf, "cpf"));
 
   return {
     username,
-    password,
+    ...(password !== undefined ? { password } : {}),
     fullName,
     cpf,
     avatarUrl:
