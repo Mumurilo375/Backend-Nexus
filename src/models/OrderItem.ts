@@ -41,6 +41,7 @@ OrderItem.init(
             type: DataTypes.DATE,
             allowNull: false,
             defaultValue: DataTypes.NOW,
+            field: "created_at",
         },
     },
     {
