@@ -1,5 +1,6 @@
 import { Router } from "express";
 import authRouter from "./auth.routes";
+import adminRouter from "./admin.routes";
 import cartRouter from "./cart.routes";
 import categoriesRouter from "./categories.routes";
 import checkoutRouter from "./checkout.routes";
@@ -35,6 +36,7 @@ router.get("/health", (_req, res) => {
 });
 
 router.use("/auth", authRouter);
+router.use("/admin", adminRouter);
 router.use("/users", usersRouter);
 router.use("/games", gamesRouter);
 router.use("/categories", categoriesRouter);

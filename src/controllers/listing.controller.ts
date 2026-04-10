@@ -79,7 +79,7 @@ class ListingController {
   ): Promise<void> {
     try {
       const input = validateCreateListingInput(req.body);
-      const listing = await createListing(input);
+      const listing = await createListing(input, req.user?.id);
       res.status(201).json(listing);
     } catch (error) {
       next(error);
@@ -94,7 +94,7 @@ class ListingController {
     try {
       const listingId = validateListingIdParam(req.params.id as string);
       const input = validateUpdateListingInput(req.body);
-      const listing = await updateListing(listingId, input);
+      const listing = await updateListing(listingId, input, req.user?.id);
       res.status(200).json(listing);
     } catch (error) {
       next(error);

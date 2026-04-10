@@ -22,6 +22,7 @@ export interface UpdatePromotionInput {
 export interface ListPromotionsQuery {
   page: number;
   limit: number;
+  activeNow?: boolean;
 }
 
 function requireString(value: unknown, field: string): string {
@@ -108,5 +109,28 @@ export function validateUpdatePromotionInput(body: unknown): UpdatePromotionInpu
 
 export function validateListPromotionsQuery(query: unknown): ListPromotionsQuery {
   const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
-  return validatePaginationQuery(safeQuery);
+  return {
+    ...validatePaginationQuery(safeQuery),
+    activeNow:
+      safeQuery.activeNow === undefined
+        ? undefined
+        : validateBooleanQuery(safeQuery.activeNow, "activeNow"),
+  };
+}
+function validateBooleanQuery(value: unknown, fieldName: string): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw new AppError(400, "VALIDATION_ERROR", `${fieldName} must be a boolean`);
 }

@@ -1,3 +1,4 @@
+import sequelize from "../config/database";
 import GamePlatformListing from "../models/GamePlatformListing";
 import Games from "../models/Games";
 import Platform from "../models/Platform";
@@ -16,6 +17,7 @@ import {
   ListListingsQuery,
   UpdateListingInput,
 } from "../validators/listing.validator";
+import { createListingPriceChange } from "./listing-price-change.service";
 
 const LISTING_INCLUDE = [
   { model: Games, as: "game" },
@@ -218,7 +220,10 @@ export async function getListingDetailsById(id: number) {
   };
 }
 
-export async function createListing(input: CreateListingInput) {
+export async function createListing(
+  input: CreateListingInput,
+  changedByUserId?: number,
+) {
   const game = await Games.findByPk(input.gameId);
   if (!game) {
     throw new AppError(404, "GAME_NOT_FOUND", "Game not found");
@@ -241,18 +246,58 @@ export async function createListing(input: CreateListingInput) {
     );
   }
 
-  return GamePlatformListing.create({
-    gameId: input.gameId,
-    platformId: input.platformId,
-    price: input.price,
-    isActive: true,
+  return sequelize.transaction(async (transaction) => {
+    const listing = await GamePlatformListing.create(
+      {
+        gameId: input.gameId,
+        platformId: input.platformId,
+        price: input.price,
+        isActive: true,
+      },
+      { transaction },
+    );
+
+    await createListingPriceChange({
+      listingId: listing.id,
+      previousPrice: null,
+      nextPrice: Number(input.price),
+      changedByUserId,
+      transaction,
+    });
+
+    return listing;
   });
 }
 
-export async function updateListing(id: number, input: UpdateListingInput) {
-  const listing = await findListingOrFail(id);
-  await listing.update(input);
-  return listing;
+export async function updateListing(
+  id: number,
+  input: UpdateListingInput,
+  changedByUserId?: number,
+) {
+  return sequelize.transaction(async (transaction) => {
+    const listing = await GamePlatformListing.findByPk(id, { transaction });
+
+    if (!listing) {
+      throw new AppError(404, "LISTING_NOT_FOUND", "Listing not found");
+    }
+
+    const previousPrice = Number(listing.price);
+    const nextPrice = input.price === undefined ? previousPrice : Number(input.price);
+
+    await listing.update(input, { transaction });
+
+    if (input.price !== undefined && nextPrice !== previousPrice) {
+      await createListingPriceChange({
+        listingId: listing.id,
+        previousPrice,
+        nextPrice,
+        changedByUserId,
+        transaction,
+      });
+    }
+
+    return listing;
+  });
 }
 
 export async function deleteListing(id: number) {

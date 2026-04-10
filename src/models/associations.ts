@@ -7,6 +7,7 @@ import GameKey from "./GameKey";
 import GamePlatformListing from "./GamePlatformListing";
 import Games from "./Games";
 import GameTag from "./GameTag";
+import ListingPriceChange from "./ListingPriceChange";
 import Order from "./Order";
 import OrderItem from "./OrderItem";
 import Platform from "./Platform";
@@ -38,7 +39,13 @@ GamePlatformListing.belongsTo(Platform, { foreignKey: "platform_id", as: "platfo
 GamePlatformListing.hasMany(GameKey, { foreignKey: "listing_id", as: "gameKeys" });
 GamePlatformListing.hasMany(CartItem, { foreignKey: "listing_id", as: "cartItems" });
 GamePlatformListing.hasMany(OrderItem, { foreignKey: "listing_id", as: "orderItems" });
-GamePlatformListing.belongsToMany(Promotion, { through: "PromotionListings", foreignKey: "listing_id", as: "promotions" });
+GamePlatformListing.hasMany(ListingPriceChange, { foreignKey: "listing_id", as: "priceChanges" });
+GamePlatformListing.belongsToMany(Promotion, {
+  through: PromotionListing,
+  foreignKey: "listing_id",
+  otherKey: "promotion_id",
+  as: "promotions",
+});
 
 GameCategory.belongsTo(Games, { foreignKey: "game_id", as: "game" });
 GameCategory.belongsTo(Categories, { foreignKey: "category_id", as: "category" });
@@ -58,10 +65,10 @@ OrderItem.belongsTo(GameKey, { foreignKey: "game_key_id", as: "gameKey" });
 OrderItem.hasOne(DeliveredKey, { foreignKey: "order_item_id", as: "deliveredKey" });
 
 Promotion.belongsToMany(GamePlatformListing, {
-	through: "PromotionListings",
-	foreignKey: "promotion_id",
-	otherKey: "listing_id",
-	as: "listings",
+  through: PromotionListing,
+  foreignKey: "promotion_id",
+  otherKey: "listing_id",
+  as: "listings",
 });
 Promotion.hasMany(PromotionListing, { foreignKey: "promotion_id", as: "promotionListings" });
 
@@ -93,6 +100,9 @@ ReviewVote.belongsTo(Users, { foreignKey: "user_id", as: "user" });
 
 PromotionListing.belongsTo(Promotion, { foreignKey: "promotion_id", as: "promotion" });
 PromotionListing.belongsTo(GamePlatformListing, { foreignKey: "listing_id", as: "listing" });
+
+ListingPriceChange.belongsTo(GamePlatformListing, { foreignKey: "listing_id", as: "listing" });
+ListingPriceChange.belongsTo(Users, { foreignKey: "changed_by_user_id", as: "changedBy" });
 
 Wishlist.belongsTo(Users, { foreignKey: "user_id", as: "user" });
 Wishlist.belongsTo(Games, { foreignKey: "game_id", as: "game" });

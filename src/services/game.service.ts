@@ -28,6 +28,7 @@ import {
   UpdateGameInput,
 } from "../validators/game.validator";
 import { bulkCreateGameKeys } from "./game-key.service";
+import { createListingPriceChange } from "./listing-price-change.service";
 
 type UploadedGameMedia = {
   coverFile?: Express.Multer.File | null;
@@ -703,6 +704,7 @@ export async function updateGamePlatform(
   gameId: number,
   platformId: number,
   input: UpdateGamePlatformInput,
+  changedByUserId?: number,
 ) {
   const transaction = await sequelize.transaction();
 
@@ -727,7 +729,7 @@ export async function updateGamePlatform(
         );
       }
 
-      await GamePlatformListing.create(
+      const createdListing = await GamePlatformListing.create(
         {
           gameId,
           platformId,
@@ -736,7 +738,19 @@ export async function updateGamePlatform(
         },
         { transaction },
       );
+
+      await createListingPriceChange({
+        listingId: createdListing.id,
+        previousPrice: null,
+        nextPrice: Number(input.price),
+        changedByUserId,
+        transaction,
+      });
     } else {
+      const previousPrice = Number(existingListing.price);
+      const nextPrice =
+        input.price === undefined ? previousPrice : Number(input.price);
+
       await existingListing.update(
         {
           price: input.price ?? existingListing.price,
@@ -744,6 +758,16 @@ export async function updateGamePlatform(
         },
         { transaction },
       );
+
+      if (input.price !== undefined && nextPrice !== previousPrice) {
+        await createListingPriceChange({
+          listingId: existingListing.id,
+          previousPrice,
+          nextPrice,
+          changedByUserId,
+          transaction,
+        });
+      }
     }
 
     await transaction.commit();

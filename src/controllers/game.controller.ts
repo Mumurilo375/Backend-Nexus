@@ -90,7 +90,12 @@ class GameController {
       const gameId = validateIdParam(req.params.id as string);
       const platformId = validatePlatformIdParam(req.params.platformId as string);
       const input = validateUpdateGamePlatformInput(req.body);
-      const platformState = await updateGamePlatform(gameId, platformId, input);
+      const platformState = await updateGamePlatform(
+        gameId,
+        platformId,
+        input,
+        req.user?.id,
+      );
       res.status(200).json(platformState);
     } catch (error) {
       next(error);
