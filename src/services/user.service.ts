@@ -25,12 +25,12 @@ async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
   if (!existing) return;
 
   if (existing.email === input.email) {
-    throw new AppError(409, "USER_ALREADY_EXISTS", "Email is already in use");
+    throw new AppError(409, "EMAIL_ALREADY_EXISTS", "Email is already in use");
   }
   if (existing.username === input.username) {
-    throw new AppError(409, "USER_ALREADY_EXISTS", "Username is already in use");
+    throw new AppError(409, "USERNAME_ALREADY_EXISTS", "Username is already in use");
   }
-  throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
+  throw new AppError(409, "CPF_ALREADY_EXISTS", "CPF is already in use");
 }
 
 // Em update, o próprio usuário pode manter seus dados atuais sem conflito.
@@ -48,9 +48,9 @@ async function checkDuplicateOnUpdate(userId: number, input: UpdateUserInput): P
   if (!existing) return;
 
   if (input.username && existing.username === input.username) {
-    throw new AppError(409, "USER_ALREADY_EXISTS", "Username is already in use");
+    throw new AppError(409, "USERNAME_ALREADY_EXISTS", "Username is already in use");
   }
-  throw new AppError(409, "USER_ALREADY_EXISTS", "CPF is already in use");
+  throw new AppError(409, "CPF_ALREADY_EXISTS", "CPF is already in use");
 }
 
 // Regra de autorização: usuário só pode alterar/deletar a própria conta.
