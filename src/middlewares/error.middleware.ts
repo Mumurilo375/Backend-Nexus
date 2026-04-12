@@ -64,6 +64,10 @@ function translateErrorMessage(message: string): string {
     return "A imagem de perfil é muito grande. Escolha uma imagem menor.";
   }
 
+  if (message.includes("Only image files are allowed")) {
+    return "Envie apenas arquivos de imagem.";
+  }
+
   if (message.includes("User not found")) {
     return "Usuário não encontrado.";
   }

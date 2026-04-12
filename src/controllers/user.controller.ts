@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { createUser, deleteUser, getUserById, listUsers, updateUser } from "../services/user.service";
 import { AppError } from "../utils/app-error";
+import { deleteTemporaryUpload } from "../utils/media-storage";
 import {
   validateCreateUserInput,
   validateIdParam,
@@ -26,6 +27,10 @@ function ensureOwnerOrAdmin(req: Request, targetUserId: number): void {
   if (authUser.id !== targetUserId && !authUser.isAdmin) {
     throw new AppError(403, "FORBIDDEN", "You can only view your own account");
   }
+}
+
+async function cleanupUploadedAvatar(file?: Express.Multer.File) {
+  await deleteTemporaryUpload(file ?? null);
 }
 
 class UserController {
@@ -54,9 +59,11 @@ class UserController {
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const newUserData = validateCreateUserInput(req.body);
-      const createdUser = await createUser(newUserData);
+      const createdUser = await createUser(newUserData, req.file);
+      await cleanupUploadedAvatar(req.file);
       res.status(201).json(createdUser);
     } catch (error) {
+      await cleanupUploadedAvatar(req.file);
       next(error);
     }
   }
@@ -67,9 +74,16 @@ class UserController {
       const updatedUserData = validateUpdateUserInput(req.body);
       const authenticatedUserId = getAuthenticatedUserId(req);
 
-      const updatedUser = await updateUser(targetUserId, authenticatedUserId, updatedUserData);
+      const updatedUser = await updateUser(
+        targetUserId,
+        authenticatedUserId,
+        updatedUserData,
+        req.file,
+      );
+      await cleanupUploadedAvatar(req.file);
       res.status(200).json(updatedUser);
     } catch (error) {
+      await cleanupUploadedAvatar(req.file);
       next(error);
     }
   }

@@ -1,6 +1,7 @@
 import { Op } from "sequelize";
 import Users from "../models/Users";
 import { AppError } from "../utils/app-error";
+import { deleteManagedMedia, isManagedMediaUrl, moveUploadedUserAvatar } from "../utils/media-storage";
 import { hashPassword } from "../utils/password";
 import { CreateUserInput, ListUsersQuery, UpdateUserInput } from "../validators/user.validator";
 
@@ -8,6 +9,7 @@ import { CreateUserInput, ListUsersQuery, UpdateUserInput } from "../validators/
 
 // Campos sensíveis não devem sair na resposta da API.
 const PUBLIC_USER_ATTRIBUTES = { exclude: ["passwordHash"] };
+type UploadedAvatarFile = Express.Multer.File | null | undefined;
 
 async function checkDuplicateOnCreate(input: CreateUserInput): Promise<void> {
   const existing = await Users.findOne({
@@ -99,7 +101,10 @@ export async function getUserById(id: number) {
   return user;
 }
 
-export async function createUser(input: CreateUserInput) {
+export async function createUser(
+  input: CreateUserInput,
+  avatarFile?: UploadedAvatarFile,
+) {
   await checkDuplicateOnCreate(input);
 
   const user = await Users.create({
@@ -111,15 +116,50 @@ export async function createUser(input: CreateUserInput) {
     avatarUrl: input.avatarUrl ?? null,
   });
 
-  const { passwordHash, ...userData } = user.toJSON();
-  return userData;
+  let createdAvatarUrl: string | null = null;
+
+  try {
+    if (avatarFile) {
+      createdAvatarUrl = await moveUploadedUserAvatar(avatarFile, {
+        userId: user.id,
+      });
+      await user.update({ avatarUrl: createdAvatarUrl });
+    }
+
+    const { passwordHash, ...userData } = user.toJSON();
+    return userData;
+  } catch (error) {
+    if (createdAvatarUrl) {
+      await deleteManagedMedia(createdAvatarUrl);
+    }
+
+    await user.destroy();
+    throw error;
+  }
 }
 
-export async function updateUser(targetId: number, authId: number, input: UpdateUserInput) {
+export async function updateUser(
+  targetId: number,
+  authId: number,
+  input: UpdateUserInput,
+  avatarFile?: UploadedAvatarFile,
+) {
   ensureOwner(targetId, authId);
   const user = await findUserOrFail(targetId);
 
   await checkDuplicateOnUpdate(targetId, input);
+
+  const currentAvatarUrl = String(user.avatarUrl ?? "").trim() || null;
+  let createdAvatarUrl: string | null = null;
+  let nextAvatarUrl = input.avatarUrl;
+  const shouldUpdateAvatar = input.avatarUrl !== undefined || Boolean(avatarFile);
+
+  if (avatarFile) {
+    createdAvatarUrl = await moveUploadedUserAvatar(avatarFile, {
+      userId: user.id,
+    });
+    nextAvatarUrl = createdAvatarUrl;
+  }
 
   const fields: Record<string, unknown> = { ...input };
   if (input.password) {
@@ -127,14 +167,41 @@ export async function updateUser(targetId: number, authId: number, input: Update
     delete fields.password;
   }
 
-  await user.update(fields);
+  if (shouldUpdateAvatar) {
+    fields.avatarUrl = nextAvatarUrl ?? null;
+  }
 
-  const { passwordHash, ...userData } = user.toJSON();
-  return userData;
+  try {
+    await user.update(fields);
+
+    const updatedAvatarUrl = String(user.avatarUrl ?? "").trim() || null;
+
+    if (
+      currentAvatarUrl &&
+      currentAvatarUrl !== updatedAvatarUrl &&
+      isManagedMediaUrl(currentAvatarUrl)
+    ) {
+      await deleteManagedMedia(currentAvatarUrl);
+    }
+
+    const { passwordHash, ...userData } = user.toJSON();
+    return userData;
+  } catch (error) {
+    if (createdAvatarUrl) {
+      await deleteManagedMedia(createdAvatarUrl);
+    }
+
+    throw error;
+  }
 }
 
 export async function deleteUser(targetId: number, authId: number) {
   ensureOwner(targetId, authId);
   const user = await findUserOrFail(targetId);
+  const avatarUrl = String(user.avatarUrl ?? "").trim() || null;
   await user.destroy();
+
+  if (avatarUrl && isManagedMediaUrl(avatarUrl)) {
+    await deleteManagedMedia(avatarUrl);
+  }
 }
