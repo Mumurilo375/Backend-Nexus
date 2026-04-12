@@ -16,18 +16,15 @@ function roundMoney(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-function buildPromotionInclude(requiredListing = false) {
+function buildPromotionInclude() {
   return [
     {
       model: PromotionListing,
       as: "promotionListings",
-      required: requiredListing,
       include: [
         {
           model: GamePlatformListing,
           as: "listing",
-          required: requiredListing,
-          where: requiredListing ? { isActive: true } : undefined,
           include: [
             { model: Games, as: "game" },
             { model: Platform, as: "platform" },
@@ -38,18 +35,53 @@ function buildPromotionInclude(requiredListing = false) {
   ];
 }
 
-function normalizePromotion(promotion: Promotion) {
+function normalizePromotionListing(
+  listing: Record<string, unknown>,
+  discountPercentage: number,
+) {
+  const basePrice = toMoneyNumber(listing.price);
+  const discountAmount = roundMoney((basePrice * discountPercentage) / 100);
+  const finalPrice = roundMoney(basePrice - discountAmount);
+
+  return {
+    id: Number(listing.id),
+    price: basePrice,
+    isActive: Boolean(listing.isActive),
+    game: listing.game
+      ? {
+          id: Number((listing.game as Record<string, unknown>).id ?? 0),
+          title: String((listing.game as Record<string, unknown>).title ?? ""),
+          coverImageUrl: (listing.game as Record<string, unknown>).coverImageUrl,
+        }
+      : null,
+    platform: listing.platform
+      ? {
+          id: Number((listing.platform as Record<string, unknown>).id ?? 0),
+          name: String((listing.platform as Record<string, unknown>).name ?? ""),
+          slug: String((listing.platform as Record<string, unknown>).slug ?? ""),
+        }
+      : null,
+    pricing: {
+      basePrice,
+      discountPercentage,
+      discountAmount,
+      finalPrice,
+      hasDiscount: discountPercentage > 0,
+    },
+  };
+}
+
+function normalizePromotion(promotion: Promotion, activeOnly = false) {
   const promotionData = promotion.toJSON() as Record<string, unknown>;
+  const discountPercentage = toMoneyNumber(promotionData.discountPercentage);
   const promotionListings = Array.isArray(promotionData.promotionListings)
     ? (promotionData.promotionListings as Array<Record<string, unknown>>)
     : [];
-  const listingLink =
-    promotionListings.find((promotionListing) => promotionListing.listing) ?? null;
-  const listing = (listingLink?.listing as Record<string, unknown> | undefined) ?? null;
-  const basePrice = toMoneyNumber(listing?.price);
-  const discountPercentage = toMoneyNumber(promotionData.discountPercentage);
-  const discountAmount = roundMoney((basePrice * discountPercentage) / 100);
-  const finalPrice = roundMoney(basePrice - discountAmount);
+  const listings = promotionListings
+    .map((promotionListing) => promotionListing.listing as Record<string, unknown> | undefined)
+    .filter((listing): listing is Record<string, unknown> => Boolean(listing))
+    .filter((listing) => (activeOnly ? Boolean(listing.isActive) : true))
+    .map((listing) => normalizePromotionListing(listing, discountPercentage));
 
   return {
     id: Number(promotionData.id),
@@ -60,36 +92,22 @@ function normalizePromotion(promotion: Promotion) {
     endDate: promotionData.endDate,
     isActive: Boolean(promotionData.isActive),
     createdAt: promotionData.createdAt,
-    listingId: listing ? Number(listing.id) : null,
-    listing: listing
-      ? {
-          id: Number(listing.id),
-          price: basePrice,
-          isActive: Boolean(listing.isActive),
-          game: listing.game
-            ? {
-                id: Number((listing.game as Record<string, unknown>).id ?? 0),
-                title: String((listing.game as Record<string, unknown>).title ?? ""),
-                coverImageUrl: (listing.game as Record<string, unknown>).coverImageUrl,
-              }
-            : null,
-          platform: listing.platform
-            ? {
-                id: Number((listing.platform as Record<string, unknown>).id ?? 0),
-                name: String((listing.platform as Record<string, unknown>).name ?? ""),
-                slug: String((listing.platform as Record<string, unknown>).slug ?? ""),
-              }
-            : null,
-          pricing: {
-            basePrice,
-            discountPercentage,
-            discountAmount,
-            finalPrice,
-            hasDiscount: discountPercentage > 0,
-          },
-        }
-      : null,
+    updatedAt: promotionData.updatedAt,
+    listingIds: listings.map((listing) => listing.id),
+    listings,
   };
+}
+
+async function findPromotionWithListingsOrFail(id: number): Promise<Promotion> {
+  const promotion = await Promotion.findByPk(id, {
+    include: buildPromotionInclude(),
+  });
+
+  if (!promotion) {
+    throw new AppError(404, "PROMOTION_NOT_FOUND", "Promotion not found");
+  }
+
+  return promotion;
 }
 
 async function findPromotionOrFail(id: number): Promise<Promotion> {
@@ -103,8 +121,7 @@ async function findPromotionOrFail(id: number): Promise<Promotion> {
 export async function listPromotions(query: ListPromotionsQuery) {
   const offset = getPaginationOffset(query.page, query.limit);
   const now = new Date();
-
-  const result = await Promotion.findAndCountAll({
+  const rows = await Promotion.findAll({
     where: query.activeNow
       ? {
           isActive: true,
@@ -112,41 +129,33 @@ export async function listPromotions(query: ListPromotionsQuery) {
           endDate: { [Op.gte]: now },
         }
       : undefined,
-    limit: query.limit,
-    offset,
     order: [["id", "DESC"]],
-    distinct: true,
-    include: buildPromotionInclude(Boolean(query.activeNow)),
+    include: buildPromotionInclude(),
   });
+  const items = rows
+    .map((promotion) => normalizePromotion(promotion, Boolean(query.activeNow)))
+    .filter((promotion) => (query.activeNow ? promotion.listings.length > 0 : true));
 
   return {
-    items: result.rows
-      .map(normalizePromotion)
-      .filter((promotion) => (query.activeNow ? Boolean(promotion.listing) : true)),
-    meta: buildPaginationMeta(query, result.count),
+    items: items.slice(offset, offset + query.limit),
+    meta: buildPaginationMeta(query, items.length),
   };
 }
 
 export async function getPromotionById(id: number) {
-  const promotion = await Promotion.findByPk(id, {
-    include: buildPromotionInclude(),
-  });
-
-  if (!promotion) {
-    throw new AppError(404, "PROMOTION_NOT_FOUND", "Promotion not found");
-  }
-
+  const promotion = await findPromotionWithListingsOrFail(id);
   return normalizePromotion(promotion);
 }
 
 export async function createPromotion(input: CreatePromotionInput) {
-  return Promotion.create({ ...input });
+  const promotion = await Promotion.create({ ...input });
+  return getPromotionById(promotion.id);
 }
 
 export async function updatePromotion(id: number, input: UpdatePromotionInput) {
   const promotion = await findPromotionOrFail(id);
   await promotion.update(input);
-  return promotion;
+  return getPromotionById(id);
 }
 
 export async function deletePromotion(id: number) {
