@@ -1,69 +1,44 @@
 import Order from "../models/Order";
 import OrderItem from "../models/OrderItem";
-import GamePlatformListing from "../models/GamePlatformListing";
-import Games from "../models/Games";
-import Platform from "../models/Platform";
-import GameKey from "../models/GameKey";
 import { AppError } from "../utils/app-error";
+import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
+import {
+  GAME_KEY_INCLUDE,
+  LISTING_WITH_GAME_AND_PLATFORM_INCLUDE,
+} from "./order.shared";
 import { ListOrderItemsQuery } from "../validators/order-item.validator";
 
-export async function listUserOrderItems(userId: number, query: ListOrderItemsQuery) {
-  const offset = (query.page - 1) * query.limit;
+function buildUserOrderItemInclude(userId: number) {
+  return [
+    {
+      model: Order,
+      as: "order",
+      where: { userId },
+      required: true,
+    },
+    LISTING_WITH_GAME_AND_PLATFORM_INCLUDE,
+    GAME_KEY_INCLUDE,
+  ];
+}
 
+export async function listUserOrderItems(userId: number, query: ListOrderItemsQuery) {
   const result = await OrderItem.findAndCountAll({
     limit: query.limit,
-    offset,
+    offset: getPaginationOffset(query.page, query.limit),
     order: [["id", "DESC"]],
-    include: [
-      {
-        model: Order,
-        as: "order",
-        where: { userId },
-        required: true,
-      },
-      {
-        model: GamePlatformListing,
-        as: "listing",
-        include: [
-          { model: Games, as: "game" },
-          { model: Platform, as: "platform" },
-        ],
-      },
-      { model: GameKey, as: "gameKey" },
-    ],
+    include: buildUserOrderItemInclude(userId),
   });
 
   return {
     items: result.rows,
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total: result.count,
-      totalPages: Math.ceil(result.count / query.limit),
-    },
+    meta: buildPaginationMeta(query, result.count),
   };
 }
 
 export async function getUserOrderItemById(userId: number, orderItemId: number) {
   const item = await OrderItem.findOne({
     where: { id: orderItemId },
-    include: [
-      {
-        model: Order,
-        as: "order",
-        where: { userId },
-        required: true,
-      },
-      {
-        model: GamePlatformListing,
-        as: "listing",
-        include: [
-          { model: Games, as: "game" },
-          { model: Platform, as: "platform" },
-        ],
-      },
-      { model: GameKey, as: "gameKey" },
-    ],
+    include: buildUserOrderItemInclude(userId),
   });
 
   if (!item) {

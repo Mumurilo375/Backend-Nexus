@@ -2,7 +2,9 @@ import { Op } from "sequelize";
 import Users from "../models/Users";
 import { AppError } from "../utils/app-error";
 import { deleteManagedMedia, isManagedMediaUrl, moveUploadedUserAvatar } from "../utils/media-storage";
+import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
 import { hashPassword } from "../utils/password";
+import { PlainObject } from "../utils/value-types";
 import { CreateUserInput, ListUsersQuery, UpdateUserInput } from "../validators/user.validator";
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -71,23 +73,16 @@ async function findUserOrFail(id: number): Promise<Users> {
 // ── Services ────────────────────────────────────────────────
 
 export async function listUsers(query: ListUsersQuery) {
-  const offset = (query.page - 1) * query.limit;
-
   const result = await Users.findAndCountAll({
     attributes: PUBLIC_USER_ATTRIBUTES,
     limit: query.limit,
-    offset,
+    offset: getPaginationOffset(query.page, query.limit),
     order: [["createdAt", "DESC"]],
   });
 
   return {
     items: result.rows,
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total: result.count,
-      totalPages: Math.ceil(result.count / query.limit),
-    },
+    meta: buildPaginationMeta(query, result.count),
   };
 }
 
@@ -161,7 +156,7 @@ export async function updateUser(
     nextAvatarUrl = createdAvatarUrl;
   }
 
-  const fields: Record<string, unknown> = { ...input };
+  const fields: PlainObject = { ...input };
   if (input.password) {
     fields.passwordHash = hashPassword(input.password);
     delete fields.password;

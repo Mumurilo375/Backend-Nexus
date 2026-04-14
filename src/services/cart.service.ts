@@ -1,16 +1,16 @@
 import CartItem from "../models/CartItem";
 import GamePlatformListing from "../models/GamePlatformListing";
-import Games from "../models/Games";
-import Platform from "../models/Platform";
 import { AppError } from "../utils/app-error";
+import { toNumber } from "../utils/money";
+import { LISTING_WITH_GAME_AND_PLATFORM_INCLUDE } from "./order.shared";
 import { countAvailableGameKeys, countListingStockSummary } from "../utils/stock";
-
-function toNumber(value: unknown): number {
-  return Number(value) || 0;
-}
 
 function getCartQuantity(item: CartItem): number {
   return Math.max(1, toNumber(item.get("quantity")));
+}
+
+function getSafeQuantity(quantity: number | undefined): number {
+  return Math.max(1, toNumber(quantity));
 }
 
 function getStockErrorMessage(availableStock: number) {
@@ -54,16 +54,7 @@ async function ensureAvailableStock(listingId: number, quantity: number) {
 export async function listUserCart(userId: number) {
   const items = await CartItem.findAll({
     where: { userId },
-    include: [
-      {
-        model: GamePlatformListing,
-        as: "listing",
-        include: [
-          { model: Games, as: "game" },
-          { model: Platform, as: "platform" },
-        ],
-      },
-    ],
+    include: [LISTING_WITH_GAME_AND_PLATFORM_INCLUDE],
     order: [["addedAt", "DESC"]],
   });
 
@@ -84,11 +75,11 @@ export async function listUserCart(userId: number) {
   );
 
   const subtotal = serializedItems.reduce(
-    (sum, item) => sum + toNumber(item.listing?.price) * quantityFromItem(item),
+    (sum, item) => sum + toNumber(item.listing?.price) * getSafeQuantity(item.quantity),
     0,
   );
   const totalItems = serializedItems.reduce(
-    (sum, item) => sum + quantityFromItem(item),
+    (sum, item) => sum + getSafeQuantity(item.quantity),
     0,
   );
 
@@ -102,10 +93,6 @@ export async function listUserCart(userId: number) {
       ),
     },
   };
-}
-
-function quantityFromItem(item: { quantity?: number }) {
-  return Math.max(1, toNumber(item.quantity));
 }
 
 export async function addListingToCart(userId: number, listingId: number) {
