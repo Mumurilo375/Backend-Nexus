@@ -1,4 +1,4 @@
-import { col, fn, Op, Transaction } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import sequelize from "../config/database";
 import Categories from "../models/Category";
 import GameCategory from "../models/GameCategory";
@@ -6,16 +6,10 @@ import GameImages from "../models/Game_images";
 import GamePlatformListing from "../models/GamePlatformListing";
 import Games from "../models/Games";
 import Platform from "../models/Platform";
-import Promotion from "../models/Promotion";
-import PromotionListing from "../models/PromotionListing";
-import Review from "../models/Review";
-import Tags from "../models/Tags";
 import { AppError } from "../utils/app-error";
-import {
-  deleteManagedMediaList,
-  isManagedMediaUrl,
-  moveUploadedGameImage,
-} from "../utils/media-storage";
+import { deleteManagedMediaList, isManagedMediaUrl } from "../utils/media-storage";
+import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
+import { toNumber } from "../utils/money";
 import { countListingStockSummary } from "../utils/stock";
 import {
   AddGamePlatformKeysInput,
@@ -23,97 +17,68 @@ import {
 } from "../validators/game-platform-admin.validator";
 import {
   CreateGameInput,
-  GameGalleryItemInput,
   ListGamesQuery,
   UpdateGameInput,
 } from "../validators/game.validator";
+import {
+  buildGameInclude,
+  enrichPlatformListing,
+  GAME_LIST_INCLUDE,
+  JsonRecord,
+  loadReviewStats,
+  serializeGame,
+} from "./catalog.shared";
+import {
+  buildGalleryItems,
+  buildGalleryRows,
+  buildGameUpdateFields,
+  getManagedGameMediaUrls,
+  replaceGameImages,
+  saveCoverImage,
+  saveGameImages,
+  UploadedGameMedia,
+} from "./game-media.shared";
+import { deleteGameDependencies } from "./game-delete.shared";
 import { bulkCreateGameKeys } from "./game-key.service";
 import { createListingPriceChange } from "./listing-price-change.service";
 
-type UploadedGameMedia = {
-  coverFile?: Express.Multer.File | null;
-  galleryFiles?: Express.Multer.File[];
-};
+const EMPTY_STOCK = { available: 0, reserved: 0, sold: 0, total: 0 };
 
-type PlainRecord = Record<string, unknown>;
-
-const gameAdminInclude = [
-  { model: Categories, as: "categories", through: { attributes: [] } },
-  { model: Tags, as: "tags", through: { attributes: [] } },
-  { model: GameImages, as: "images", required: false },
-  {
-    model: GamePlatformListing,
-    as: "platformListings",
-    required: false,
-    include: [{ model: Platform, as: "platform" }],
-  },
-];
-
-const gameDetailsInclude = [
-  { model: Categories, as: "categories", through: { attributes: [] } },
-  { model: Tags, as: "tags", through: { attributes: [] } },
-  { model: GameImages, as: "images", required: false },
-  {
-    model: GamePlatformListing,
-    as: "platformListings",
-    required: false,
-    where: { isActive: true },
-    include: [{ model: Platform, as: "platform" }],
-  },
-];
-
-function asRecordArray(value: unknown) {
-  return Array.isArray(value) ? (value as PlainRecord[]) : [];
-}
-
-function toMoneyNumber(value: unknown) {
-  return Number(value) || 0;
-}
-
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function sortImages(images: PlainRecord[]) {
-  return [...images].sort((firstImage, secondImage) => {
-    const firstSortOrder = Number(firstImage.sortOrder ?? 0);
-    const secondSortOrder = Number(secondImage.sortOrder ?? 0);
-
-    if (firstSortOrder !== secondSortOrder) {
-      return firstSortOrder - secondSortOrder;
-    }
-
-    return Number(firstImage.id ?? 0) - Number(secondImage.id ?? 0);
-  });
-}
-
-function sortNamedItems(items: PlainRecord[]) {
-  return [...items].sort((firstItem, secondItem) =>
-    String(firstItem.name ?? "").localeCompare(String(secondItem.name ?? ""), "pt-BR"),
-  );
-}
-
-function sortPlatformListings(listings: PlainRecord[]) {
-  return [...listings].sort(
-    (firstListing, secondListing) =>
-      toMoneyNumber(firstListing.price) - toMoneyNumber(secondListing.price),
-  );
-}
-
-function normalizeGame(game: Games) {
-  const gameData = game.toJSON() as PlainRecord;
-
+function buildGamePlatformState(
+  platform: Platform,
+  listing: GamePlatformListing | null,
+  stock = EMPTY_STOCK,
+) {
   return {
-    ...gameData,
-    categories: sortNamedItems(asRecordArray(gameData.categories)),
-    tags: sortNamedItems(asRecordArray(gameData.tags)),
-    images: sortImages(asRecordArray(gameData.images)),
-    platformListings: sortPlatformListings(asRecordArray(gameData.platformListings)),
+    platform: {
+      id: platform.id,
+      name: platform.name,
+      slug: platform.slug,
+      iconUrl: platform.iconUrl,
+      isActive: platform.isActive,
+    },
+    hasListing: Boolean(listing),
+    listingId: listing?.id ?? null,
+    price: listing ? toNumber(listing.price) : null,
+    isActive: listing?.isActive ?? false,
+    stock,
   };
 }
 
 async function findGameOrFail(id: number, transaction?: Transaction) {
   const game = await Games.findByPk(id, { transaction });
+
+  if (!game) {
+    throw new AppError(404, "GAME_NOT_FOUND", "Game not found");
+  }
+
+  return game;
+}
+
+async function findGameWithRelationsOrFail(id: number, activeListingsOnly = false) {
+  const game = await Games.findByPk(id, {
+    include: buildGameInclude(activeListingsOnly),
+  });
 
   if (!game) {
     throw new AppError(404, "GAME_NOT_FOUND", "Game not found");
@@ -143,9 +108,11 @@ async function findListingByGameAndPlatform(
   });
 }
 
-async function ensureCategoriesExist(categoryIds: number[], transaction: Transaction) {
+async function validateCategoryIds(
+  categoryIds: number[],
+  transaction: Transaction,
+) {
   const uniqueCategoryIds = [...new Set(categoryIds)];
-
   const categories = await Categories.findAll({
     where: { id: { [Op.in]: uniqueCategoryIds } },
     attributes: ["id"],
@@ -159,215 +126,153 @@ async function ensureCategoriesExist(categoryIds: number[], transaction: Transac
   return uniqueCategoryIds;
 }
 
-async function syncGameCategories(
+async function replaceGameCategories(
   gameId: number,
   categoryIds: number[],
   transaction: Transaction,
 ) {
-  await GameCategory.destroy({
-    where: { gameId },
-    transaction,
-  });
-
+  await GameCategory.destroy({ where: { gameId }, transaction });
   await GameCategory.bulkCreate(
-    categoryIds.map((categoryId) => ({
-      gameId,
-      categoryId,
-    })),
+    categoryIds.map((categoryId) => ({ gameId, categoryId })),
     { transaction },
   );
 }
 
-function buildEffectiveGalleryItems(
-  galleryItems: GameGalleryItemInput[] | undefined,
-  galleryFiles: Express.Multer.File[],
-) {
-  if (galleryItems !== undefined) {
-    return galleryItems;
-  }
-
-  if (galleryFiles.length === 0) {
-    return undefined;
-  }
-
-  return galleryFiles.map((_, fileIndex) => ({
-    kind: "file" as const,
-    fileIndex,
-  }));
-}
-
-async function resolveCoverImageUrl(
-  gameId: number,
-  currentCoverImageUrl: string | null | undefined,
-  nextCoverImageUrl: string | null | undefined,
-  coverFile: Express.Multer.File | null | undefined,
-  createdManagedMediaUrls: string[],
-) {
-  if (coverFile) {
-    const managedCoverImageUrl = await moveUploadedGameImage(coverFile, {
-      gameId,
-      kind: "cover",
-    });
-
-    createdManagedMediaUrls.push(managedCoverImageUrl);
-    return managedCoverImageUrl;
-  }
-
-  return String(nextCoverImageUrl ?? currentCoverImageUrl ?? "").trim();
-}
-
-async function resolveGalleryImageRows(
-  gameId: number,
-  galleryItems: GameGalleryItemInput[],
-  galleryFiles: Express.Multer.File[],
+function getRemovedGalleryMediaUrls(
   existingImages: GameImages[],
-  createdManagedMediaUrls: string[],
+  keptImageIds: Set<number>,
 ) {
-  const existingImageById = new Map(existingImages.map((image) => [image.id, image]));
-  const retainedImageIds = new Set<number>();
-  const imageRows: Array<{ imageUrl: string; sortOrder: number }> = [];
+  return existingImages
+    .filter(
+      (image) => !keptImageIds.has(image.id) && isManagedMediaUrl(image.imageUrl),
+    )
+    .map((image) => image.imageUrl);
+}
 
-  for (const galleryItem of galleryItems) {
-    if (galleryItem.kind === "existing") {
-      const existingImage = existingImageById.get(galleryItem.id ?? 0);
-
-      if (!existingImage) {
-        throw new AppError(400, "VALIDATION_ERROR", "Gallery item no longer exists");
-      }
-
-      retainedImageIds.add(existingImage.id);
-      imageRows.push({
-        imageUrl: existingImage.imageUrl,
-        sortOrder: imageRows.length,
-      });
-      continue;
-    }
-
-    if (galleryItem.kind === "file") {
-      const galleryFile = galleryFiles[galleryItem.fileIndex ?? -1];
-
-      if (!galleryFile) {
-        throw new AppError(400, "VALIDATION_ERROR", "Gallery file is missing");
-      }
-
-      const managedGalleryImageUrl = await moveUploadedGameImage(galleryFile, {
-        gameId,
-        kind: "gallery",
-      });
-
-      createdManagedMediaUrls.push(managedGalleryImageUrl);
-      imageRows.push({
-        imageUrl: managedGalleryImageUrl,
-        sortOrder: imageRows.length,
-      });
-      continue;
-    }
-
-    imageRows.push({
-      imageUrl: String(galleryItem.url ?? "").trim(),
-      sortOrder: imageRows.length,
-    });
+function getReplacedCoverMediaUrls(currentCoverImageUrl: string, nextCoverImageUrl: string) {
+  if (
+    currentCoverImageUrl &&
+    currentCoverImageUrl !== nextCoverImageUrl &&
+    isManagedMediaUrl(currentCoverImageUrl)
+  ) {
+    return [currentCoverImageUrl];
   }
 
-  return { imageRows, retainedImageIds };
+  return [];
 }
 
-function emptyStockSummary() {
-  return {
-    available: 0,
-    reserved: 0,
-    sold: 0,
-    total: 0,
-  };
-}
-
-async function getActivePromotionsByListingId(listingId: number) {
-  const now = new Date();
-
-  const promotionLinks = await PromotionListing.findAll({
-    where: { listingId },
-    include: [
-      {
-        model: Promotion,
-        as: "promotion",
-        attributes: [
-          "id",
-          "name",
-          "description",
-          "discountPercentage",
-          "startDate",
-          "endDate",
-          "isActive",
-        ],
-        required: true,
-        where: {
-          isActive: true,
-          startDate: { [Op.lte]: now },
-          endDate: { [Op.gte]: now },
-        },
-      },
-    ],
-    order: [["id", "DESC"]],
+async function createGameInTransaction(
+  input: CreateGameInput,
+  uploadedGameMedia: UploadedGameMedia,
+  createdMediaUrls: string[],
+  transaction: Transaction,
+) {
+  const categoryIds = await validateCategoryIds(input.categoryIds, transaction);
+  const game = await Games.create(
+    {
+      title: input.title,
+      description: input.description,
+      longDescription: input.longDescription,
+      releaseDate: input.releaseDate,
+      coverImageUrl: input.coverImageUrl || "__pending_cover__",
+      isActive: input.isActive,
+    },
+    { transaction },
+  );
+  const coverImageUrl = await saveCoverImage({
+    gameId: game.id,
+    currentUrl: "",
+    nextUrl: input.coverImageUrl,
+    coverFile: uploadedGameMedia.coverFile,
+    createdMediaUrls,
   });
 
-  return promotionLinks
-    .map((promotionLink) => promotionLink.get("promotion") as Promotion | undefined)
-    .filter((promotion): promotion is Promotion => Boolean(promotion))
-    .map((promotion) => promotion.toJSON());
-}
+  if (!coverImageUrl) {
+    throw new AppError(400, "VALIDATION_ERROR", "cover image is required");
+  }
 
-async function enrichPlatformListing(listing: PlainRecord) {
-  const listingId = Number(listing.id ?? 0);
-  const [stock, activePromotions] = await Promise.all([
-    countListingStockSummary(listingId),
-    getActivePromotionsByListingId(listingId),
+  await Promise.all([
+    game.update({ coverImageUrl }, { transaction }),
+    replaceGameCategories(game.id, categoryIds, transaction),
   ]);
 
-  const highestDiscountPercentage = activePromotions.reduce((highestDiscount, promotion) => {
-    const discount = toMoneyNumber(
-      (promotion as Record<string, unknown>).discountPercentage,
-    );
+  const galleryItems = buildGalleryItems(
+    input.galleryItems,
+    uploadedGameMedia.galleryFiles ?? [],
+  );
 
-    return discount > highestDiscount ? discount : highestDiscount;
-  }, 0);
+  if (galleryItems?.length) {
+    const { rows } = await buildGalleryRows({
+      gameId: game.id,
+      galleryItems,
+      galleryFiles: uploadedGameMedia.galleryFiles ?? [],
+      existingImages: [],
+      createdMediaUrls,
+    });
 
-  const basePrice = toMoneyNumber(listing.price);
-  const discountAmount = roundMoney((basePrice * highestDiscountPercentage) / 100);
-  const finalPrice = roundMoney(basePrice - discountAmount);
+    await saveGameImages(game.id, rows, transaction);
+  }
 
-  return {
-    ...listing,
-    activePromotions,
-    pricing: {
-      basePrice,
-      discountPercentage: highestDiscountPercentage,
-      discountAmount,
-      finalPrice,
-      hasDiscount: highestDiscountPercentage > 0,
-    },
-    stock,
-  };
+  return game.id;
 }
 
-function buildGamePlatformState(
-  platform: Platform,
-  listing: GamePlatformListing | null,
-  stock = emptyStockSummary(),
+async function updateGameInTransaction(
+  id: number,
+  input: UpdateGameInput,
+  uploadedGameMedia: UploadedGameMedia,
+  createdMediaUrls: string[],
+  transaction: Transaction,
 ) {
-  return {
-    platform: {
-      id: platform.id,
-      name: platform.name,
-      slug: platform.slug,
-      iconUrl: platform.iconUrl,
-      isActive: platform.isActive,
-    },
-    hasListing: Boolean(listing),
-    listingId: listing?.id ?? null,
-    price: listing ? toMoneyNumber(listing.price) : null,
-    isActive: listing?.isActive ?? false,
-    stock,
-  };
+  const game = await findGameOrFail(id, transaction);
+  const existingImages = await GameImages.findAll({
+    where: { gameId: id },
+    order: [["sortOrder", "ASC"], ["id", "ASC"]],
+    transaction,
+  });
+  const currentCoverImageUrl = String(game.coverImageUrl ?? "").trim();
+
+  if (input.categoryIds) {
+    await replaceGameCategories(
+      id,
+      await validateCategoryIds(input.categoryIds, transaction),
+      transaction,
+    );
+  }
+
+  const coverImageUrl = await saveCoverImage({
+    gameId: id,
+    currentUrl: currentCoverImageUrl,
+    nextUrl: input.coverImageUrl,
+    coverFile: uploadedGameMedia.coverFile,
+    createdMediaUrls,
+  });
+
+  if (!coverImageUrl) {
+    throw new AppError(400, "VALIDATION_ERROR", "cover image is required");
+  }
+
+  const mediaUrlsToDelete = [...getReplacedCoverMediaUrls(currentCoverImageUrl, coverImageUrl)];
+  const galleryItems = buildGalleryItems(
+    input.galleryItems,
+    uploadedGameMedia.galleryFiles ?? [],
+  );
+
+  if (galleryItems !== undefined) {
+    const { rows, keptImageIds } = await buildGalleryRows({
+      gameId: id,
+      galleryItems,
+      galleryFiles: uploadedGameMedia.galleryFiles ?? [],
+      existingImages,
+      createdMediaUrls,
+    });
+
+    mediaUrlsToDelete.push(...getRemovedGalleryMediaUrls(existingImages, keptImageIds));
+    await replaceGameImages(id, rows, transaction);
+  }
+
+  await game.update(buildGameUpdateFields(input, coverImageUrl), { transaction });
+
+  return mediaUrlsToDelete;
 }
 
 async function getGamePlatformState(gameId: number, platformId: number) {
@@ -375,15 +280,14 @@ async function getGamePlatformState(gameId: number, platformId: number) {
     findPlatformOrFail(platformId),
     findListingByGameAndPlatform(gameId, platformId),
   ]);
+  const stock = listing ? await countListingStockSummary(listing.id) : EMPTY_STOCK;
 
-  const stock = listing ? await countListingStockSummary(listing.id) : emptyStockSummary();
   return buildGamePlatformState(platform, listing, stock);
 }
 
 export async function listGames(query: ListGamesQuery) {
-  const offset = (query.page - 1) * query.limit;
-
   const result = await Games.findAndCountAll({
+    distinct: true,
     where: query.q
       ? {
           title: {
@@ -392,135 +296,51 @@ export async function listGames(query: ListGamesQuery) {
         }
       : undefined,
     limit: query.limit,
-    offset,
+    offset: getPaginationOffset(query.page, query.limit),
     order: [["createdAt", "DESC"]],
-    include: [
-      { model: Categories, as: "categories", through: { attributes: [] } },
-      { model: Tags, as: "tags", through: { attributes: [] } },
-    ],
+    include: GAME_LIST_INCLUDE,
   });
 
   return {
-    items: result.rows.map(normalizeGame),
-    meta: {
-      page: query.page,
-      limit: query.limit,
-      total: result.count,
-      totalPages: Math.ceil(result.count / query.limit),
-    },
+    items: result.rows.map(serializeGame),
+    meta: buildPaginationMeta(query, result.count),
   };
 }
 
 export async function getGameById(id: number) {
-  const game = await Games.findByPk(id, {
-    include: gameAdminInclude,
-  });
-
-  if (!game) {
-    throw new AppError(404, "GAME_NOT_FOUND", "Game not found");
-  }
-
-  return normalizeGame(game);
+  return serializeGame(await findGameWithRelationsOrFail(id));
 }
 
 export async function getGameDetailsById(id: number) {
-  const game = await Games.findByPk(id, {
-    include: gameDetailsInclude,
-  });
-
-  if (!game) {
-    throw new AppError(404, "GAME_NOT_FOUND", "Game not found");
-  }
-
-  const gameData = normalizeGame(game) as PlainRecord;
-  const rawPlatformListings = asRecordArray(gameData.platformListings);
-
-  const [reviewsCount, averageRatingRow, platformListings] = await Promise.all([
-    Review.count({ where: { gameId: id } }),
-    (Review.findOne({
-      where: { gameId: id },
-      attributes: [[fn("AVG", col("rating")), "averageRating"]],
-      raw: true,
-    }) as Promise<{ averageRating: string | null } | null>),
-    Promise.all(
-      sortPlatformListings(rawPlatformListings).map((listing) =>
-        enrichPlatformListing(listing),
-      ),
+  const game = await findGameWithRelationsOrFail(id, true);
+  const serializedGame = serializeGame(game) as JsonRecord;
+  const platformListings = await Promise.all(
+    ((serializedGame.platformListings as JsonRecord[] | undefined) ?? []).map(
+      enrichPlatformListing,
     ),
-  ]);
-
-  const averageRating = toMoneyNumber(averageRatingRow?.averageRating);
+  );
 
   return {
-    ...gameData,
+    ...serializedGame,
     platformListings,
-    reviewStats: {
-      totalReviews: reviewsCount,
-      averageRating: Number(averageRating.toFixed(1)),
-    },
+    reviewStats: await loadReviewStats(id),
   };
 }
 
-export async function createGame(input: CreateGameInput, uploadedGameMedia: UploadedGameMedia = {}) {
-  const transaction = await sequelize.transaction();
-  const createdManagedMediaUrls: string[] = [];
+export async function createGame(
+  input: CreateGameInput,
+  uploadedGameMedia: UploadedGameMedia = {},
+) {
+  const createdMediaUrls: string[] = [];
 
   try {
-    const categoryIds = await ensureCategoriesExist(input.categoryIds, transaction);
-    const game = await Games.create(
-      {
-        title: input.title,
-        description: input.description,
-        longDescription: input.longDescription,
-        releaseDate: input.releaseDate,
-        coverImageUrl: input.coverImageUrl || "__pending_cover__",
-        isActive: input.isActive,
-      },
-      { transaction },
+    const gameId = await sequelize.transaction((transaction) =>
+      createGameInTransaction(input, uploadedGameMedia, createdMediaUrls, transaction),
     );
 
-    const coverImageUrl = await resolveCoverImageUrl(
-      game.id,
-      "",
-      input.coverImageUrl,
-      uploadedGameMedia.coverFile,
-      createdManagedMediaUrls,
-    );
-
-    if (!coverImageUrl) {
-      throw new AppError(400, "VALIDATION_ERROR", "cover image is required");
-    }
-
-    await game.update({ coverImageUrl }, { transaction });
-    await syncGameCategories(game.id, categoryIds, transaction);
-
-    const effectiveGalleryItems =
-      buildEffectiveGalleryItems(input.galleryItems, uploadedGameMedia.galleryFiles ?? []) ?? [];
-
-    if (effectiveGalleryItems.length > 0) {
-      const { imageRows } = await resolveGalleryImageRows(
-        game.id,
-        effectiveGalleryItems,
-        uploadedGameMedia.galleryFiles ?? [],
-        [],
-        createdManagedMediaUrls,
-      );
-
-      await GameImages.bulkCreate(
-        imageRows.map((imageRow) => ({
-          gameId: game.id,
-          imageUrl: imageRow.imageUrl,
-          sortOrder: imageRow.sortOrder,
-        })),
-        { transaction },
-      );
-    }
-
-    await transaction.commit();
-    return getGameById(game.id);
+    return getGameById(gameId);
   } catch (error) {
-    await transaction.rollback();
-    await deleteManagedMediaList(createdManagedMediaUrls);
+    await deleteManagedMediaList(createdMediaUrls);
     throw error;
   }
 }
@@ -530,138 +350,31 @@ export async function updateGame(
   input: UpdateGameInput,
   uploadedGameMedia: UploadedGameMedia = {},
 ) {
-  const transaction = await sequelize.transaction();
-  const createdManagedMediaUrls: string[] = [];
-  const managedMediaUrlsToDelete: string[] = [];
+  const createdMediaUrls: string[] = [];
 
   try {
-    const game = await findGameOrFail(id, transaction);
-    const existingImages = await GameImages.findAll({
-      where: { gameId: id },
-      order: [["sortOrder", "ASC"], ["id", "ASC"]],
-      transaction,
-    });
-    const previousCoverImageUrl = String(game.coverImageUrl ?? "").trim();
-
-    if (input.categoryIds) {
-      const categoryIds = await ensureCategoriesExist(input.categoryIds, transaction);
-      await syncGameCategories(id, categoryIds, transaction);
-    }
-
-    const coverImageUrl = await resolveCoverImageUrl(
-      id,
-      previousCoverImageUrl,
-      input.coverImageUrl,
-      uploadedGameMedia.coverFile,
-      createdManagedMediaUrls,
+    const mediaUrlsToDelete = await sequelize.transaction((transaction) =>
+      updateGameInTransaction(id, input, uploadedGameMedia, createdMediaUrls, transaction),
     );
 
-    if (!coverImageUrl) {
-      throw new AppError(400, "VALIDATION_ERROR", "cover image is required");
-    }
-
-    const effectiveGalleryItems = buildEffectiveGalleryItems(
-      input.galleryItems,
-      uploadedGameMedia.galleryFiles ?? [],
-    );
-
-    if (effectiveGalleryItems !== undefined) {
-      const { imageRows, retainedImageIds } = await resolveGalleryImageRows(
-        id,
-        effectiveGalleryItems,
-        uploadedGameMedia.galleryFiles ?? [],
-        existingImages,
-        createdManagedMediaUrls,
-      );
-
-      managedMediaUrlsToDelete.push(
-        ...existingImages
-          .filter((image) => !retainedImageIds.has(image.id) && isManagedMediaUrl(image.imageUrl))
-          .map((image) => image.imageUrl),
-      );
-
-      await GameImages.destroy({
-        where: { gameId: id },
-        transaction,
-      });
-
-      if (imageRows.length > 0) {
-        await GameImages.bulkCreate(
-          imageRows.map((imageRow) => ({
-            gameId: id,
-            imageUrl: imageRow.imageUrl,
-            sortOrder: imageRow.sortOrder,
-          })),
-          { transaction },
-        );
-      }
-    }
-
-    if (coverImageUrl !== previousCoverImageUrl && isManagedMediaUrl(previousCoverImageUrl)) {
-      managedMediaUrlsToDelete.push(previousCoverImageUrl);
-    }
-
-    const updatePayload: Record<string, unknown> = {
-      coverImageUrl,
-    };
-
-    if (input.title !== undefined) {
-      updatePayload.title = input.title;
-    }
-    if (input.description !== undefined) {
-      updatePayload.description = input.description;
-    }
-    if (input.longDescription !== undefined) {
-      updatePayload.longDescription = input.longDescription;
-    }
-    if (input.releaseDate !== undefined) {
-      updatePayload.releaseDate = input.releaseDate;
-    }
-    if (input.isActive !== undefined) {
-      updatePayload.isActive = input.isActive;
-    }
-
-    await game.update(updatePayload, { transaction });
-    await transaction.commit();
-    await deleteManagedMediaList(managedMediaUrlsToDelete);
-
+    await deleteManagedMediaList(mediaUrlsToDelete);
     return getGameById(id);
   } catch (error) {
-    await transaction.rollback();
-    await deleteManagedMediaList(createdManagedMediaUrls);
+    await deleteManagedMediaList(createdMediaUrls);
     throw error;
   }
 }
 
 export async function deleteGame(id: number) {
-  const transaction = await sequelize.transaction();
-
-  try {
+  const mediaUrls = await sequelize.transaction(async (transaction) => {
     const game = await findGameOrFail(id, transaction);
-    const images = await GameImages.findAll({
-      where: { gameId: id },
-      transaction,
-    });
-    const managedMediaUrls = [
-      String(game.coverImageUrl ?? "").trim(),
-      ...images.map((image) => image.imageUrl),
-    ].filter((value) => isManagedMediaUrl(value));
-
-    await GameImages.destroy({
-      where: { gameId: id },
-      transaction,
-    });
-    await GameCategory.destroy({
-      where: { gameId: id },
-      transaction,
-    });
+    const images = await deleteGameDependencies(id, transaction);
     await game.destroy({ transaction });
-    await transaction.commit();
-    await deleteManagedMediaList(managedMediaUrls);
-  } catch (error) {
-    await transaction.rollback();
-    throw error;
-  }
+
+    return getManagedGameMediaUrls(game, images);
+  });
+
+  await deleteManagedMediaList(mediaUrls);
 }
 
 export async function getGamePlatformsById(gameId: number) {
@@ -682,11 +395,17 @@ export async function getGamePlatformsById(gameId: number) {
     throw new AppError(404, "GAME_NOT_FOUND", "Game not found");
   }
 
-  const listingByPlatformId = new Map(listings.map((listing) => [listing.platformId, listing]));
-  const stockEntries = await Promise.all(
-    listings.map(async (listing) => [listing.platformId, await countListingStockSummary(listing.id)] as const),
+  const listingByPlatformId = new Map(
+    listings.map((listing) => [listing.platformId, listing] as const),
   );
-  const stockByPlatformId = new Map(stockEntries);
+  const stockByPlatformId = new Map(
+    await Promise.all(
+      listings.map(
+        async (listing) =>
+          [listing.platformId, await countListingStockSummary(listing.id)] as const,
+      ),
+    ),
+  );
 
   return {
     game: game.toJSON(),
@@ -694,7 +413,7 @@ export async function getGamePlatformsById(gameId: number) {
       buildGamePlatformState(
         platform,
         listingByPlatformId.get(platform.id) ?? null,
-        stockByPlatformId.get(platform.id) ?? emptyStockSummary(),
+        stockByPlatformId.get(platform.id) ?? EMPTY_STOCK,
       ),
     ),
   };
@@ -706,21 +425,19 @@ export async function updateGamePlatform(
   input: UpdateGamePlatformInput,
   changedByUserId?: number,
 ) {
-  const transaction = await sequelize.transaction();
-
-  try {
+  await sequelize.transaction(async (transaction) => {
     await Promise.all([
       findGameOrFail(gameId, transaction),
       findPlatformOrFail(platformId, transaction),
     ]);
 
-    const existingListing = await findListingByGameAndPlatform(
+    const listing = await findListingByGameAndPlatform(
       gameId,
       platformId,
       transaction,
     );
 
-    if (!existingListing) {
+    if (!listing) {
       if (input.price === undefined) {
         throw new AppError(
           400,
@@ -742,40 +459,37 @@ export async function updateGamePlatform(
       await createListingPriceChange({
         listingId: createdListing.id,
         previousPrice: null,
-        nextPrice: Number(input.price),
+        nextPrice: toNumber(input.price),
         changedByUserId,
         transaction,
       });
-    } else {
-      const previousPrice = Number(existingListing.price);
-      const nextPrice =
-        input.price === undefined ? previousPrice : Number(input.price);
 
-      await existingListing.update(
-        {
-          price: input.price ?? existingListing.price,
-          isActive: input.isActive ?? existingListing.isActive,
-        },
-        { transaction },
-      );
-
-      if (input.price !== undefined && nextPrice !== previousPrice) {
-        await createListingPriceChange({
-          listingId: existingListing.id,
-          previousPrice,
-          nextPrice,
-          changedByUserId,
-          transaction,
-        });
-      }
+      return;
     }
 
-    await transaction.commit();
-    return getGamePlatformState(gameId, platformId);
-  } catch (error) {
-    await transaction.rollback();
-    throw error;
-  }
+    const previousPrice = toNumber(listing.price);
+    const nextPrice = input.price === undefined ? previousPrice : toNumber(input.price);
+
+    await listing.update(
+      {
+        price: nextPrice,
+        isActive: input.isActive ?? listing.isActive,
+      },
+      { transaction },
+    );
+
+    if (input.price !== undefined && nextPrice !== previousPrice) {
+      await createListingPriceChange({
+        listingId: listing.id,
+        previousPrice,
+        nextPrice,
+        changedByUserId,
+        transaction,
+      });
+    }
+  });
+
+  return getGamePlatformState(gameId, platformId);
 }
 
 export async function addKeysToGamePlatform(
@@ -783,8 +497,7 @@ export async function addKeysToGamePlatform(
   platformId: number,
   input: AddGamePlatformKeysInput,
 ) {
-  await findGameOrFail(gameId);
-  await findPlatformOrFail(platformId);
+  await Promise.all([findGameOrFail(gameId), findPlatformOrFail(platformId)]);
 
   const listing = await findListingByGameAndPlatform(gameId, platformId);
 
@@ -796,13 +509,11 @@ export async function addKeysToGamePlatform(
     );
   }
 
-  const result = await bulkCreateGameKeys({
-    listingId: listing.id,
-    keyValues: input.keyValues,
-  });
-
   return {
     listingId: listing.id,
-    ...result,
+    ...(await bulkCreateGameKeys({
+      listingId: listing.id,
+      keyValues: input.keyValues,
+    })),
   };
 }

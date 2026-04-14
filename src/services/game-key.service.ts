@@ -14,29 +14,56 @@ import {
 
 async function findGameKeyOrFail(id: number): Promise<GameKey> {
   const gameKey = await GameKey.findByPk(id);
+
   if (!gameKey) {
     throw new AppError(404, "GAME_KEY_NOT_FOUND", "Game key not found");
   }
+
   return gameKey;
 }
 
 async function findListingOrFail(id: number): Promise<GamePlatformListing> {
   const listing = await GamePlatformListing.findByPk(id);
+
   if (!listing) {
     throw new AppError(404, "LISTING_NOT_FOUND", "Listing not found");
   }
+
   return listing;
 }
 
+function normalizeKeyValue(value: string) {
+  return value.trim();
+}
+
+function normalizeKeyValues(values: string[]) {
+  const validValues = values.map(normalizeKeyValue).filter(Boolean);
+
+  if (validValues.length === 0) {
+    throw new AppError(
+      400,
+      "VALIDATION_ERROR",
+      "keyValues must contain at least one valid key",
+    );
+  }
+
+  return [...new Set(validValues)];
+}
+
+async function listExistingKeyValues(keyValues: string[]) {
+  const existingKeys = await GameKey.findAll({
+    where: { keyValue: { [Op.in]: keyValues } },
+    attributes: ["keyValue"],
+  });
+
+  return new Set(existingKeys.map((item) => String(item.get("keyValue"))));
+}
+
 export async function listGameKeys(query: ListGameKeysQuery) {
-  const offset = getPaginationOffset(query.page, query.limit);
-
-  const where = query.listingId ? { listingId: query.listingId } : undefined;
-
   const result = await GameKey.findAndCountAll({
-    where,
+    where: query.listingId ? { listingId: query.listingId } : undefined,
     limit: query.limit,
-    offset,
+    offset: getPaginationOffset(query.page, query.limit),
     order: [["id", "DESC"]],
     include: [{ model: GamePlatformListing, as: "listing" }],
   });
@@ -62,9 +89,8 @@ export async function getGameKeyById(id: number) {
 export async function createGameKey(input: CreateGameKeyInput) {
   await findListingOrFail(input.listingId);
 
-  const existing = await GameKey.findOne({
-    where: { keyValue: input.keyValue.trim() },
-  });
+  const keyValue = normalizeKeyValue(input.keyValue);
+  const existing = await GameKey.findOne({ where: { keyValue } });
 
   if (existing) {
     throw new AppError(409, "GAME_KEY_ALREADY_EXISTS", "Game key already exists");
@@ -72,7 +98,7 @@ export async function createGameKey(input: CreateGameKeyInput) {
 
   return GameKey.create({
     listingId: input.listingId,
-    keyValue: input.keyValue.trim(),
+    keyValue,
     status: "available",
   });
 }
@@ -80,24 +106,9 @@ export async function createGameKey(input: CreateGameKeyInput) {
 export async function bulkCreateGameKeys(input: BulkCreateGameKeysInput) {
   await findListingOrFail(input.listingId);
 
-  const rawKeyValues = input.keyValues
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const keyValues = [...new Set(rawKeyValues)];
-
-  if (rawKeyValues.length === 0) {
-    throw new AppError(400, "VALIDATION_ERROR", "keyValues must contain at least one valid key");
-  }
-
-  const existingKeys = await GameKey.findAll({
-    where: { keyValue: { [Op.in]: keyValues } },
-    attributes: ["keyValue"],
-  });
-
-  const existingSet = new Set(
-    existingKeys.map((item) => String(item.get("keyValue"))),
-  );
-  const newKeys = keyValues.filter((value) => !existingSet.has(value));
+  const uniqueKeyValues = normalizeKeyValues(input.keyValues);
+  const existingKeyValues = await listExistingKeyValues(uniqueKeyValues);
+  const newKeys = uniqueKeyValues.filter((keyValue) => !existingKeyValues.has(keyValue));
 
   if (newKeys.length > 0) {
     await GameKey.bulkCreate(
@@ -111,15 +122,15 @@ export async function bulkCreateGameKeys(input: BulkCreateGameKeysInput) {
 
   return {
     createdCount: newKeys.length,
-    skippedCount: rawKeyValues.length - newKeys.length,
+    skippedCount: input.keyValues.map(normalizeKeyValue).filter(Boolean).length - newKeys.length,
     stock: await countListingStockSummary(input.listingId),
   };
 }
 
 export async function updateGameKey(id: number, input: UpdateGameKeyInput) {
   const gameKey = await findGameKeyOrFail(id);
-
   const now = new Date();
+
   await gameKey.update({
     status: input.status,
     reservedAt: input.status === "reserved" ? now : null,

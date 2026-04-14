@@ -1,90 +1,82 @@
+import { Op } from "sequelize";
 import GamePlatformListing from "../models/GamePlatformListing";
 import Games from "../models/Games";
 import Platform from "../models/Platform";
 import Promotion from "../models/Promotion";
 import PromotionListing from "../models/PromotionListing";
-import { Op } from "sequelize";
 import { AppError } from "../utils/app-error";
+import { buildPricing, toNumber } from "../utils/money";
 import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
-import { CreatePromotionInput, ListPromotionsQuery, UpdatePromotionInput } from "../validators/promotion.validator";
+import { PlainObject, PlainValue } from "../utils/value-types";
+import {
+  CreatePromotionInput,
+  ListPromotionsQuery,
+  UpdatePromotionInput,
+} from "../validators/promotion.validator";
 
-function toMoneyNumber(value: unknown) {
-  return Number(value) || 0;
+type JsonRecord = PlainObject;
+
+const PROMOTION_INCLUDE = [
+  {
+    model: PromotionListing,
+    as: "promotionListings",
+    include: [
+      {
+        model: GamePlatformListing,
+        as: "listing",
+        include: [
+          { model: Games, as: "game" },
+          { model: Platform, as: "platform" },
+        ],
+      },
+    ],
+  },
+];
+
+function asRecordArray(value: PlainValue): JsonRecord[] {
+  return Array.isArray(value) ? (value as JsonRecord[]) : [];
 }
 
-function roundMoney(value: number) {
-  return Math.round(value * 100) / 100;
-}
-
-function buildPromotionInclude() {
-  return [
-    {
-      model: PromotionListing,
-      as: "promotionListings",
-      include: [
-        {
-          model: GamePlatformListing,
-          as: "listing",
-          include: [
-            { model: Games, as: "game" },
-            { model: Platform, as: "platform" },
-          ],
-        },
-      ],
-    },
-  ];
-}
-
-function normalizePromotionListing(
-  listing: Record<string, unknown>,
+function serializePromotionListing(
+  listing: JsonRecord,
   discountPercentage: number,
 ) {
-  const basePrice = toMoneyNumber(listing.price);
-  const discountAmount = roundMoney((basePrice * discountPercentage) / 100);
-  const finalPrice = roundMoney(basePrice - discountAmount);
+  const game = listing.game as JsonRecord | undefined;
+  const platform = listing.platform as JsonRecord | undefined;
 
   return {
-    id: Number(listing.id),
-    price: basePrice,
+    id: toNumber(listing.id),
+    price: toNumber(listing.price),
     isActive: Boolean(listing.isActive),
-    game: listing.game
+    game: game
       ? {
-          id: Number((listing.game as Record<string, unknown>).id ?? 0),
-          title: String((listing.game as Record<string, unknown>).title ?? ""),
-          coverImageUrl: (listing.game as Record<string, unknown>).coverImageUrl,
+          id: toNumber(game.id),
+          title: String(game.title ?? ""),
+          coverImageUrl: game.coverImageUrl,
         }
       : null,
-    platform: listing.platform
+    platform: platform
       ? {
-          id: Number((listing.platform as Record<string, unknown>).id ?? 0),
-          name: String((listing.platform as Record<string, unknown>).name ?? ""),
-          slug: String((listing.platform as Record<string, unknown>).slug ?? ""),
+          id: toNumber(platform.id),
+          name: String(platform.name ?? ""),
+          slug: String(platform.slug ?? ""),
         }
       : null,
-    pricing: {
-      basePrice,
-      discountPercentage,
-      discountAmount,
-      finalPrice,
-      hasDiscount: discountPercentage > 0,
-    },
+    pricing: buildPricing(listing.price, discountPercentage),
   };
 }
 
-function normalizePromotion(promotion: Promotion, activeOnly = false) {
-  const promotionData = promotion.toJSON() as Record<string, unknown>;
-  const discountPercentage = toMoneyNumber(promotionData.discountPercentage);
-  const promotionListings = Array.isArray(promotionData.promotionListings)
-    ? (promotionData.promotionListings as Array<Record<string, unknown>>)
-    : [];
-  const listings = promotionListings
-    .map((promotionListing) => promotionListing.listing as Record<string, unknown> | undefined)
-    .filter((listing): listing is Record<string, unknown> => Boolean(listing))
+function serializePromotion(promotion: Promotion, activeOnly = false) {
+  const promotionData = promotion.toJSON() as JsonRecord;
+  const discountPercentage = toNumber(promotionData.discountPercentage);
+  const listings = asRecordArray(promotionData.promotionListings)
+    .map((promotionListing) => promotionListing.listing as JsonRecord | undefined)
+    .filter((listing): listing is JsonRecord => Boolean(listing))
     .filter((listing) => (activeOnly ? Boolean(listing.isActive) : true))
-    .map((listing) => normalizePromotionListing(listing, discountPercentage));
+    .map((listing) => serializePromotionListing(listing, discountPercentage));
 
   return {
-    id: Number(promotionData.id),
+    id: toNumber(promotionData.id),
     name: String(promotionData.name ?? ""),
     description: promotionData.description ? String(promotionData.description) : null,
     discountPercentage,
@@ -98,9 +90,9 @@ function normalizePromotion(promotion: Promotion, activeOnly = false) {
   };
 }
 
-async function findPromotionWithListingsOrFail(id: number): Promise<Promotion> {
+async function findPromotionOrFail(id: number, includeListings = false): Promise<Promotion> {
   const promotion = await Promotion.findByPk(id, {
-    include: buildPromotionInclude(),
+    ...(includeListings ? { include: PROMOTION_INCLUDE } : {}),
   });
 
   if (!promotion) {
@@ -110,16 +102,15 @@ async function findPromotionWithListingsOrFail(id: number): Promise<Promotion> {
   return promotion;
 }
 
-async function findPromotionOrFail(id: number): Promise<Promotion> {
-  const promotion = await Promotion.findByPk(id);
-  if (!promotion) {
-    throw new AppError(404, "PROMOTION_NOT_FOUND", "Promotion not found");
+async function findListingOrFail(listingId: number) {
+  const listing = await GamePlatformListing.findByPk(listingId);
+
+  if (!listing) {
+    throw new AppError(404, "LISTING_NOT_FOUND", "Listing not found");
   }
-  return promotion;
 }
 
 export async function listPromotions(query: ListPromotionsQuery) {
-  const offset = getPaginationOffset(query.page, query.limit);
   const now = new Date();
   const rows = await Promotion.findAll({
     where: query.activeNow
@@ -130,11 +121,12 @@ export async function listPromotions(query: ListPromotionsQuery) {
         }
       : undefined,
     order: [["id", "DESC"]],
-    include: buildPromotionInclude(),
+    include: PROMOTION_INCLUDE,
   });
   const items = rows
-    .map((promotion) => normalizePromotion(promotion, Boolean(query.activeNow)))
+    .map((promotion) => serializePromotion(promotion, Boolean(query.activeNow)))
     .filter((promotion) => (query.activeNow ? promotion.listings.length > 0 : true));
+  const offset = getPaginationOffset(query.page, query.limit);
 
   return {
     items: items.slice(offset, offset + query.limit),
@@ -143,8 +135,7 @@ export async function listPromotions(query: ListPromotionsQuery) {
 }
 
 export async function getPromotionById(id: number) {
-  const promotion = await findPromotionWithListingsOrFail(id);
-  return normalizePromotion(promotion);
+  return serializePromotion(await findPromotionOrFail(id, true));
 }
 
 export async function createPromotion(input: CreatePromotionInput) {
@@ -164,12 +155,10 @@ export async function deletePromotion(id: number) {
 }
 
 export async function linkListingToPromotion(promotionId: number, listingId: number) {
-  await findPromotionOrFail(promotionId);
-
-  const listing = await GamePlatformListing.findByPk(listingId);
-  if (!listing) {
-    throw new AppError(404, "LISTING_NOT_FOUND", "Listing not found");
-  }
+  await Promise.all([
+    findPromotionOrFail(promotionId),
+    findListingOrFail(listingId),
+  ]);
 
   const [link] = await PromotionListing.findOrCreate({
     where: { promotionId, listingId },

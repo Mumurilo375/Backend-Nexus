@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { isAppError } from "../utils/app-error";
+import { ErrorLike } from "../utils/value-types";
 
 type PayloadTooLargeError = {
   type?: string;
@@ -7,7 +8,7 @@ type PayloadTooLargeError = {
   statusCode?: number;
 };
 
-function isPayloadTooLargeError(error: unknown): error is PayloadTooLargeError {
+function isPayloadTooLargeError(error: ErrorLike): error is PayloadTooLargeError {
   if (!error || typeof error !== "object") {
     return false;
   }
@@ -68,6 +69,10 @@ function translateErrorMessage(message: string): string {
     return "Envie apenas arquivos de imagem.";
   }
 
+  if (message.includes("Game cannot be deleted because it has order history")) {
+    return "Este jogo já possui vendas registradas e não pode ser excluído. Desative-o em vez de excluir.";
+  }
+
   if (message.includes("User not found")) {
     return "Usuário não encontrado.";
   }
@@ -107,7 +112,7 @@ export function notFoundMiddleware(req: Request, res: Response): void {
 }
 
 export function errorMiddleware(
-  error: unknown,
+  error: ErrorLike,
   _req: Request,
   res: Response,
   _next: NextFunction,

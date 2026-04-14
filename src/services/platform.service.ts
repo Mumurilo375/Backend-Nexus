@@ -19,8 +19,10 @@ async function checkDuplicate(input: { name?: string; slug?: string }, excludeId
   if (input.slug) conditions.push({ slug: input.slug });
   if (conditions.length === 0) return;
 
-  const where: Record<string, unknown> = { [Op.or]: conditions };
-  if (excludeId) where.id = { [Op.ne]: excludeId };
+  const where = {
+    [Op.or]: conditions,
+    ...(excludeId ? { id: { [Op.ne]: excludeId } } : {}),
+  };
 
   const existing = await Platform.findOne({ where });
 
