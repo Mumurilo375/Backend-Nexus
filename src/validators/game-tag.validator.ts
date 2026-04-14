@@ -1,5 +1,10 @@
-import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  readRequestBody,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface CreateGameTagInput {
   gameId: number;
@@ -17,12 +22,10 @@ export interface GameTagParams {
   tagId: number;
 }
 
-export function validateCreateGameTagInput(body: unknown): CreateGameTagInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateCreateGameTagInput(
+  body: InputValue | null | undefined,
+): CreateGameTagInput {
+  const requestBody = readRequestBody(body);
 
   return {
     gameId: validatePositiveIdParam(String(requestBody.gameId ?? "")),
@@ -37,17 +40,18 @@ export function validateGameTagParams(gameId: string, tagId: string): GameTagPar
   };
 }
 
-export function validateListGameTagsQuery(query: unknown): ListGameTagsQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListGameTagsQuery(
+  query: InputValue | null | undefined,
+): ListGameTagsQuery {
+  const safeQuery = readQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
 
-  const gameIdValue = safeQuery.gameId;
-  if (gameIdValue === undefined) {
+  if (safeQuery.gameId === undefined) {
     return pagination;
   }
 
   return {
     ...pagination,
-    gameId: validatePositiveIdParam(String(gameIdValue)),
+    gameId: validatePositiveIdParam(String(safeQuery.gameId)),
   };
 }

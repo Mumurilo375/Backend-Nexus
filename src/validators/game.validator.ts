@@ -1,8 +1,11 @@
 import { AppError } from "../utils/app-error";
 import {
+  readQueryParams,
+  readRequestBody,
   validatePaginationQuery,
   validatePositiveIdParam,
 } from "../utils/request-validator";
+import { InputObject, InputValue } from "../utils/value-types";
 
 export interface GameGalleryItemInput {
   kind: "existing" | "file" | "url";
@@ -39,7 +42,7 @@ export interface ListGamesQuery {
   q?: string;
 }
 
-function requireString(value: unknown, field: string) {
+function requireString(value: InputValue, field: string) {
   const text = String(value ?? "").trim();
   if (!text) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
@@ -47,7 +50,7 @@ function requireString(value: unknown, field: string) {
   return text;
 }
 
-function readOptionalString(value: unknown) {
+function readOptionalString(value: InputValue) {
   const text = String(value ?? "").trim();
   return text || undefined;
 }
@@ -63,7 +66,7 @@ function validateDate(value: string, field: string) {
   return value;
 }
 
-function parseBoolean(value: unknown, field: string) {
+function parseBoolean(value: InputValue, field: string) {
   if (typeof value === "boolean") {
     return value;
   }
@@ -79,7 +82,7 @@ function parseBoolean(value: unknown, field: string) {
   throw new AppError(400, "VALIDATION_ERROR", `${field} must be a boolean`);
 }
 
-function parseJsonArray(value: unknown, field: string) {
+function parseJsonArray(value: InputValue, field: string): InputValue[] {
   if (Array.isArray(value)) {
     return value;
   }
@@ -89,7 +92,7 @@ function parseJsonArray(value: unknown, field: string) {
   }
 
   try {
-    const parsedValue = JSON.parse(String(value));
+    const parsedValue = JSON.parse(String(value)) as InputValue;
     if (!Array.isArray(parsedValue)) {
       throw new Error("Not an array");
     }
@@ -99,9 +102,11 @@ function parseJsonArray(value: unknown, field: string) {
   }
 }
 
-function parseCategoryIds(value: unknown, required: boolean) {
+function parseCategoryIds(value: InputValue, required: boolean) {
   const parsedValues = parseJsonArray(value, "categoryIds");
-  const uniqueCategoryIds = [...new Set(parsedValues.map((item) => validatePositiveIdParam(String(item ?? ""))))];
+  const uniqueCategoryIds = [
+    ...new Set(parsedValues.map((item) => validatePositiveIdParam(String(item ?? "")))),
+  ];
 
   if (required && uniqueCategoryIds.length === 0) {
     throw new AppError(
@@ -114,11 +119,11 @@ function parseCategoryIds(value: unknown, required: boolean) {
   return uniqueCategoryIds;
 }
 
-function parseGalleryItems(value: unknown) {
+function parseGalleryItems(value: InputValue) {
   const parsedValues = parseJsonArray(value, "galleryItems");
 
   return parsedValues.map((item, index) => {
-    if (!item || typeof item !== "object") {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
       throw new AppError(
         400,
         "VALIDATION_ERROR",
@@ -126,7 +131,7 @@ function parseGalleryItems(value: unknown) {
       );
     }
 
-    const candidate = item as Record<string, unknown>;
+    const candidate = item as InputObject;
     const kind = String(candidate.kind ?? "").trim() as GameGalleryItemInput["kind"];
 
     if (!["existing", "file", "url"].includes(kind)) {
@@ -167,12 +172,10 @@ function parseGalleryItems(value: unknown) {
   });
 }
 
-export function validateCreateGameInput(body: unknown): CreateGameInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateCreateGameInput(
+  body: InputValue | null | undefined,
+): CreateGameInput {
+  const requestBody = readRequestBody(body);
 
   return {
     title: requireString(requestBody.title, "title"),
@@ -192,12 +195,10 @@ export function validateCreateGameInput(body: unknown): CreateGameInput {
   };
 }
 
-export function validateUpdateGameInput(body: unknown): UpdateGameInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateUpdateGameInput(
+  body: InputValue | null | undefined,
+): UpdateGameInput {
+  const requestBody = readRequestBody(body);
   const result: UpdateGameInput = {};
 
   if (requestBody.title !== undefined) {
@@ -242,9 +243,8 @@ export function validateUpdateGameInput(body: unknown): UpdateGameInput {
   return result;
 }
 
-export function validateListGamesQuery(query: unknown): ListGamesQuery {
-  const safeQuery =
-    query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListGamesQuery(query: InputValue | null | undefined): ListGamesQuery {
+  const safeQuery = readQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
   const searchQuery = String(safeQuery.q ?? "").trim();
 

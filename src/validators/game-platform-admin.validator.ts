@@ -1,5 +1,9 @@
 import { AppError } from "../utils/app-error";
-import { validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readRequestBody,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface UpdateGamePlatformInput {
   price?: number;
@@ -10,7 +14,7 @@ export interface AddGamePlatformKeysInput {
   keyValues: string[];
 }
 
-function validatePrice(value: unknown) {
+function validatePrice(value: InputValue) {
   const rawPrice = typeof value === "number" ? String(value) : String(value ?? "").trim();
   const normalizedPrice =
     rawPrice.includes(",") && rawPrice.includes(".")
@@ -27,7 +31,7 @@ function validatePrice(value: unknown) {
   return price;
 }
 
-function requireArray(value: unknown, field: string) {
+function requireArray(value: InputValue, field: string): InputValue[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} must be a non-empty array`);
   }
@@ -35,7 +39,7 @@ function requireArray(value: unknown, field: string) {
   return value;
 }
 
-function normalizeGameKeyValue(value: unknown) {
+function normalizeGameKeyValue(value: InputValue) {
   const rawKeyValue = String(value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
   if (rawKeyValue.length !== 12) {
@@ -53,12 +57,10 @@ export function validatePlatformIdParam(id: string) {
   return validatePositiveIdParam(id);
 }
 
-export function validateUpdateGamePlatformInput(body: unknown): UpdateGamePlatformInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateUpdateGamePlatformInput(
+  body: InputValue | null | undefined,
+): UpdateGamePlatformInput {
+  const requestBody = readRequestBody(body);
   const result: UpdateGamePlatformInput = {};
 
   if (requestBody.price !== undefined) {
@@ -80,12 +82,10 @@ export function validateUpdateGamePlatformInput(body: unknown): UpdateGamePlatfo
   return result;
 }
 
-export function validateAddGamePlatformKeysInput(body: unknown): AddGamePlatformKeysInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateAddGamePlatformKeysInput(
+  body: InputValue | null | undefined,
+): AddGamePlatformKeysInput {
+  const requestBody = readRequestBody(body);
 
   return {
     keyValues: requireArray(requestBody.keyValues, "keyValues").map(normalizeGameKeyValue),

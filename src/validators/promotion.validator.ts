@@ -1,5 +1,11 @@
 import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  readRequestBody,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface CreatePromotionInput {
   name: string;
@@ -25,7 +31,7 @@ export interface ListPromotionsQuery {
   activeNow?: boolean;
 }
 
-function requireString(value: unknown, field: string): string {
+function requireString(value: InputValue, field: string): string {
   const text = String(value ?? "").trim();
   if (!text) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
@@ -33,7 +39,7 @@ function requireString(value: unknown, field: string): string {
   return text;
 }
 
-function validatePercentage(value: unknown): number {
+function validatePercentage(value: InputValue): number {
   const discount = Number(value);
   if (!Number.isInteger(discount) || discount < 1 || discount > 100) {
     throw new AppError(400, "VALIDATION_ERROR", "discountPercentage must be between 1 and 100");
@@ -41,7 +47,7 @@ function validatePercentage(value: unknown): number {
   return discount;
 }
 
-function validateDate(value: unknown, field: string): string {
+function validateDate(value: InputValue, field: string): string {
   const date = String(value ?? "").trim();
   if (!/^\d{4}-\d{2}-\d{2}/.test(date)) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} must be a valid date string`);
@@ -49,16 +55,32 @@ function validateDate(value: unknown, field: string): string {
   return date;
 }
 
+function validateBooleanQuery(value: InputValue, fieldName: string): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw new AppError(400, "VALIDATION_ERROR", `${fieldName} must be a boolean`);
+}
+
 export function validatePromotionIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
 
-export function validateCreatePromotionInput(body: unknown): CreatePromotionInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateCreatePromotionInput(
+  body: InputValue | null | undefined,
+): CreatePromotionInput {
+  const requestBody = readRequestBody(body);
 
   return {
     name: requireString(requestBody.name, "name"),
@@ -70,12 +92,10 @@ export function validateCreatePromotionInput(body: unknown): CreatePromotionInpu
   };
 }
 
-export function validateUpdatePromotionInput(body: unknown): UpdatePromotionInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateUpdatePromotionInput(
+  body: InputValue | null | undefined,
+): UpdatePromotionInput {
+  const requestBody = readRequestBody(body);
   const result: UpdatePromotionInput = {};
 
   if (requestBody.name !== undefined) {
@@ -107,8 +127,11 @@ export function validateUpdatePromotionInput(body: unknown): UpdatePromotionInpu
   return result;
 }
 
-export function validateListPromotionsQuery(query: unknown): ListPromotionsQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListPromotionsQuery(
+  query: InputValue | null | undefined,
+): ListPromotionsQuery {
+  const safeQuery = readQueryParams(query);
+
   return {
     ...validatePaginationQuery(safeQuery),
     activeNow:
@@ -116,21 +139,4 @@ export function validateListPromotionsQuery(query: unknown): ListPromotionsQuery
         ? undefined
         : validateBooleanQuery(safeQuery.activeNow, "activeNow"),
   };
-}
-function validateBooleanQuery(value: unknown, fieldName: string): boolean {
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  const normalizedValue = String(value ?? "").trim().toLowerCase();
-
-  if (normalizedValue === "true" || normalizedValue === "1") {
-    return true;
-  }
-
-  if (normalizedValue === "false" || normalizedValue === "0") {
-    return false;
-  }
-
-  throw new AppError(400, "VALIDATION_ERROR", `${fieldName} must be a boolean`);
 }

@@ -1,4 +1,9 @@
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface ListReviewVotesQuery {
   page: number;
@@ -10,17 +15,18 @@ export function validateReviewIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
 
-export function validateListReviewVotesQuery(query: unknown): ListReviewVotesQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListReviewVotesQuery(
+  query: InputValue | null | undefined,
+): ListReviewVotesQuery {
+  const safeQuery = readQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
 
-  const reviewIdValue = safeQuery.reviewId;
-  if (reviewIdValue === undefined) {
+  if (safeQuery.reviewId === undefined) {
     return pagination;
   }
 
   return {
     ...pagination,
-    reviewId: validatePositiveIdParam(String(reviewIdValue)),
+    reviewId: validatePositiveIdParam(String(safeQuery.reviewId)),
   };
 }

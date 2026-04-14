@@ -1,10 +1,11 @@
 import { AppError } from "../utils/app-error";
 import {
+  readQueryParams,
+  readRequestBody,
   validatePaginationQuery,
   validatePositiveIdParam,
 } from "../utils/request-validator";
-
-// ── Interfaces ──────────────────────────────────────────────
+import { InputValue } from "../utils/value-types";
 
 export interface CreateUserInput {
   email: string;
@@ -28,12 +29,10 @@ export interface ListUsersQuery {
   limit: number;
 }
 
-// ── Helpers ─────────────────────────────────────────────────
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_AVATAR_URL_LENGTH = 2_000_000;
 
-function requireString(value: unknown, field: string): string {
+function requireString(value: InputValue, field: string): string {
   const str = String(value ?? "").trim();
   if (!str) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
@@ -97,7 +96,7 @@ function validatePasswordStrength(password: string): void {
   }
 }
 
-function normalizeAvatarUrl(value: unknown): string | null {
+function normalizeAvatarUrl(value: InputValue): string | null {
   if (value === undefined || value === null) {
     return null;
   }
@@ -114,19 +113,10 @@ function normalizeAvatarUrl(value: unknown): string | null {
   return normalized;
 }
 
-// ── Validators ──────────────────────────────────────────────
-
-export function validateCreateUserInput(body: unknown): CreateUserInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(
-      400,
-      "VALIDATION_ERROR",
-      "Request body must be an object",
-    );
-  }
-
-  const requestBody = body as Record<string, unknown>;
-
+export function validateCreateUserInput(
+  body: InputValue | null | undefined,
+): CreateUserInput {
+  const requestBody = readRequestBody(body);
   const email = validateEmail(requireString(requestBody.email, "email"));
   const username = requireString(requestBody.username, "username");
   const password = requireString(requestBody.password, "password");
@@ -153,16 +143,10 @@ export function validateCreateUserInput(body: unknown): CreateUserInput {
   };
 }
 
-export function validateUpdateUserInput(body: unknown): UpdateUserInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(
-      400,
-      "VALIDATION_ERROR",
-      "Request body must be an object",
-    );
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateUpdateUserInput(
+  body: InputValue | null | undefined,
+): UpdateUserInput {
+  const requestBody = readRequestBody(body);
 
   if ("email" in requestBody) {
     throw new AppError(400, "VALIDATION_ERROR", "Email cannot be changed");
@@ -206,12 +190,8 @@ export function validateUpdateUserInput(body: unknown): UpdateUserInput {
   };
 }
 
-export function validateListUsersQuery(query: unknown): ListUsersQuery {
-  const safeQuery =
-    query && typeof query === "object"
-      ? (query as Record<string, unknown>)
-      : {};
-  return validatePaginationQuery(safeQuery);
+export function validateListUsersQuery(query: InputValue | null | undefined): ListUsersQuery {
+  return validatePaginationQuery(readQueryParams(query));
 }
 
 export function validateIdParam(id: string): number {

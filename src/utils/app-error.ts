@@ -1,3 +1,5 @@
+import { ErrorLike } from "./value-types";
+
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly code: string;
@@ -10,6 +12,6 @@ export class AppError extends Error {
   }
 }
 
-export function isAppError(error: unknown): error is AppError {
+export function isAppError(error: ErrorLike): error is AppError {
   return error instanceof AppError;
 }

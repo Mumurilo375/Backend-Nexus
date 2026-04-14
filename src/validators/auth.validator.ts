@@ -1,4 +1,6 @@
 import { AppError } from "../utils/app-error";
+import { readRequestBody } from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface LoginInput {
   email: string;
@@ -7,12 +9,8 @@ export interface LoginInput {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function validateLoginInput(body: unknown): LoginInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateLoginInput(body: InputValue | null | undefined): LoginInput {
+  const requestBody = readRequestBody(body);
   const email = String(requestBody.email ?? "").trim().toLowerCase();
   const password = String(requestBody.password ?? "");
 

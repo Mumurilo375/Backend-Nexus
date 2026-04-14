@@ -1,11 +1,40 @@
 import { AppError } from "./app-error";
+import { InputObject, InputValue } from "./value-types";
 
 export interface PaginationQuery {
   page: number;
   limit: number;
 }
 
-export function validatePaginationQuery(query: Record<string, unknown>): PaginationQuery {
+export function isInputObject(value: InputValue | null | undefined): value is InputObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+export function readRequestBody(body: InputValue | null | undefined): InputObject {
+  if (!isInputObject(body)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
+  }
+
+  return body;
+}
+
+export function readQueryParams(query: InputValue | null | undefined): InputObject {
+  return isInputObject(query) ? query : {};
+}
+
+export function readStrictQueryParams(query: InputValue | null | undefined): InputObject {
+  if (query === undefined) {
+    return {};
+  }
+
+  if (!isInputObject(query)) {
+    throw new AppError(400, "VALIDATION_ERROR", "Query params must be an object");
+  }
+
+  return query;
+}
+
+export function validatePaginationQuery(query: InputObject): PaginationQuery {
   const page = Number(query?.page) || 1;
   const limit = Number(query?.limit) || 20;
 

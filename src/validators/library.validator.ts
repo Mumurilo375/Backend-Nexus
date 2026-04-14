@@ -1,11 +1,11 @@
-import { validatePaginationQuery } from "../utils/request-validator";
+import { readQueryParams, validatePaginationQuery } from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface ListLibraryQuery {
   page: number;
   limit: number;
 }
 
-export function validateListLibraryQuery(query: unknown): ListLibraryQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
-  return validatePaginationQuery(safeQuery);
+export function validateListLibraryQuery(query: InputValue | null | undefined): ListLibraryQuery {
+  return validatePaginationQuery(readQueryParams(query));
 }

@@ -1,5 +1,11 @@
 import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  readRequestBody,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface CreatePlatformInput {
   name: string;
@@ -19,7 +25,7 @@ export interface ListPlatformsQuery {
   limit: number;
 }
 
-function requireString(value: unknown, field: string): string {
+function requireString(value: InputValue, field: string): string {
   const str = String(value ?? "").trim();
   if (!str) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
@@ -27,13 +33,10 @@ function requireString(value: unknown, field: string): string {
   return str;
 }
 
-export function validateCreatePlatformInput(body: unknown): CreatePlatformInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
-
+export function validateCreatePlatformInput(
+  body: InputValue | null | undefined,
+): CreatePlatformInput {
+  const requestBody = readRequestBody(body);
   const name = requireString(requestBody.name, "name");
   const slug = requireString(requestBody.slug, "slug");
 
@@ -51,13 +54,10 @@ export function validateCreatePlatformInput(body: unknown): CreatePlatformInput 
   };
 }
 
-export function validateUpdatePlatformInput(body: unknown): UpdatePlatformInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
-
+export function validateUpdatePlatformInput(
+  body: InputValue | null | undefined,
+): UpdatePlatformInput {
+  const requestBody = readRequestBody(body);
   const result: UpdatePlatformInput = {};
 
   if (requestBody.name !== undefined) {
@@ -66,15 +66,18 @@ export function validateUpdatePlatformInput(body: unknown): UpdatePlatformInput 
       throw new AppError(400, "VALIDATION_ERROR", "name must have at most 100 characters");
     }
   }
+
   if (requestBody.slug !== undefined) {
     result.slug = requireString(requestBody.slug, "slug");
     if (result.slug.length > 100) {
       throw new AppError(400, "VALIDATION_ERROR", "slug must have at most 100 characters");
     }
   }
+
   if (requestBody.iconUrl !== undefined) {
     result.iconUrl = requestBody.iconUrl ? String(requestBody.iconUrl) : null;
   }
+
   if (requestBody.isActive !== undefined) {
     if (typeof requestBody.isActive !== "boolean") {
       throw new AppError(400, "VALIDATION_ERROR", "isActive must be a boolean");
@@ -89,9 +92,10 @@ export function validateUpdatePlatformInput(body: unknown): UpdatePlatformInput 
   return result;
 }
 
-export function validateListPlatformsQuery(query: unknown): ListPlatformsQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
-  return validatePaginationQuery(safeQuery);
+export function validateListPlatformsQuery(
+  query: InputValue | null | undefined,
+): ListPlatformsQuery {
+  return validatePaginationQuery(readQueryParams(query));
 }
 
 export function validateIdParam(id: string): number {

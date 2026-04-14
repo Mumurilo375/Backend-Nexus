@@ -1,5 +1,11 @@
 import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  readRequestBody,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface CreateGameKeyInput {
   listingId: number;
@@ -26,7 +32,7 @@ export interface ListGameKeysQuery {
   listingId?: number;
 }
 
-function requireString(value: unknown, field: string): string {
+function requireString(value: InputValue, field: string): string {
   const text = String(value ?? "").trim();
   if (!text) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
@@ -34,7 +40,7 @@ function requireString(value: unknown, field: string): string {
   return text;
 }
 
-function requireArray(value: unknown, field: string): unknown[] {
+function requireArray(value: InputValue, field: string): InputValue[] {
   if (!Array.isArray(value) || value.length === 0) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} must be a non-empty array`);
   }
@@ -46,12 +52,10 @@ export function validateGameKeyIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
 
-export function validateCreateGameKeyInput(body: unknown): CreateGameKeyInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateCreateGameKeyInput(
+  body: InputValue | null | undefined,
+): CreateGameKeyInput {
+  const requestBody = readRequestBody(body);
 
   return {
     listingId: validatePositiveIdParam(String(requestBody.listingId ?? "")),
@@ -59,12 +63,10 @@ export function validateCreateGameKeyInput(body: unknown): CreateGameKeyInput {
   };
 }
 
-export function validateBulkCreateGameKeysInput(body: unknown): BulkCreateGameKeysInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateBulkCreateGameKeysInput(
+  body: InputValue | null | undefined,
+): BulkCreateGameKeysInput {
+  const requestBody = readRequestBody(body);
 
   return {
     listingId: validatePositiveIdParam(String(requestBody.listingId ?? "")),
@@ -74,12 +76,10 @@ export function validateBulkCreateGameKeysInput(body: unknown): BulkCreateGameKe
   };
 }
 
-export function validateBulkDeleteGameKeysInput(body: unknown): BulkDeleteGameKeysInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateBulkDeleteGameKeysInput(
+  body: InputValue | null | undefined,
+): BulkDeleteGameKeysInput {
+  const requestBody = readRequestBody(body);
 
   return {
     listingId: validatePositiveIdParam(String(requestBody.listingId ?? "")),
@@ -89,36 +89,30 @@ export function validateBulkDeleteGameKeysInput(body: unknown): BulkDeleteGameKe
   };
 }
 
-export function validateUpdateGameKeyInput(body: unknown): UpdateGameKeyInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
+export function validateUpdateGameKeyInput(
+  body: InputValue | null | undefined,
+): UpdateGameKeyInput {
+  const status = requireString(readRequestBody(body).status, "status");
 
-  const requestBody = body as Record<string, unknown>;
-  const status = requireString(requestBody.status, "status");
-
-  if (![
-    "available",
-    "reserved",
-    "sold",
-  ].includes(status)) {
+  if (!["available", "reserved", "sold"].includes(status)) {
     throw new AppError(400, "VALIDATION_ERROR", "status must be available, reserved or sold");
   }
 
   return { status };
 }
 
-export function validateListGameKeysQuery(query: unknown): ListGameKeysQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListGameKeysQuery(
+  query: InputValue | null | undefined,
+): ListGameKeysQuery {
+  const safeQuery = readQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
 
-  const listingIdValue = safeQuery.listingId;
-  if (listingIdValue === undefined) {
+  if (safeQuery.listingId === undefined) {
     return pagination;
   }
 
   return {
     ...pagination,
-    listingId: validatePositiveIdParam(String(listingIdValue)),
+    listingId: validatePositiveIdParam(String(safeQuery.listingId)),
   };
 }

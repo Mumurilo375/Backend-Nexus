@@ -1,4 +1,9 @@
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface ListDeliveredKeysQuery {
   page: number;
@@ -9,7 +14,8 @@ export function validateDeliveredKeyIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
 
-export function validateListDeliveredKeysQuery(query: unknown): ListDeliveredKeysQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
-  return validatePaginationQuery(safeQuery);
+export function validateListDeliveredKeysQuery(
+  query: InputValue | null | undefined,
+): ListDeliveredKeysQuery {
+  return validatePaginationQuery(readQueryParams(query));
 }

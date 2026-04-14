@@ -1,5 +1,9 @@
-import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readStrictQueryParams,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface ListListingPriceChangesQuery {
   page: number;
@@ -8,19 +12,15 @@ export interface ListListingPriceChangesQuery {
   listingId?: number;
 }
 
-function readOptionalText(value: unknown) {
+function readOptionalText(value: InputValue) {
   const text = String(value ?? "").trim();
   return text ? text : undefined;
 }
 
 export function validateListListingPriceChangesQuery(
-  query: unknown,
+  query: InputValue | null | undefined,
 ): ListListingPriceChangesQuery {
-  if (query !== undefined && typeof query !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Query params must be an object");
-  }
-
-  const safeQuery = (query as Record<string, unknown> | undefined) ?? {};
+  const safeQuery = readStrictQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
 
   return {

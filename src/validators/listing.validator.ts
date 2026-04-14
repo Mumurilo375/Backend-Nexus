@@ -1,5 +1,11 @@
 import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  readRequestBody,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface CreateListingInput {
   gameId: number;
@@ -19,7 +25,7 @@ export interface ListListingsQuery {
   includeStock?: boolean;
 }
 
-function validatePrice(value: unknown): number {
+function validatePrice(value: InputValue): number {
   const price = Number(value);
   if (!Number.isFinite(price) || price <= 0) {
     throw new AppError(400, "VALIDATION_ERROR", "price must be greater than 0");
@@ -27,14 +33,12 @@ function validatePrice(value: unknown): number {
   return price;
 }
 
-function validateBooleanQuery(value: unknown, fieldName: string): boolean {
+function validateBooleanQuery(value: InputValue, fieldName: string): boolean {
   if (typeof value === "boolean") {
     return value;
   }
 
-  const normalizedValue = String(value ?? "")
-    .trim()
-    .toLowerCase();
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
 
   if (normalizedValue === "true" || normalizedValue === "1") {
     return true;
@@ -51,12 +55,10 @@ export function validateListingIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
 
-export function validateCreateListingInput(body: unknown): CreateListingInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateCreateListingInput(
+  body: InputValue | null | undefined,
+): CreateListingInput {
+  const requestBody = readRequestBody(body);
 
   return {
     gameId: validatePositiveIdParam(String(requestBody.gameId ?? "")),
@@ -65,12 +67,10 @@ export function validateCreateListingInput(body: unknown): CreateListingInput {
   };
 }
 
-export function validateUpdateListingInput(body: unknown): UpdateListingInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateUpdateListingInput(
+  body: InputValue | null | undefined,
+): UpdateListingInput {
+  const requestBody = readRequestBody(body);
   const result: UpdateListingInput = {};
 
   if (requestBody.price !== undefined) {
@@ -91,8 +91,10 @@ export function validateUpdateListingInput(body: unknown): UpdateListingInput {
   return result;
 }
 
-export function validateListListingsQuery(query: unknown): ListListingsQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListListingsQuery(
+  query: InputValue | null | undefined,
+): ListListingsQuery {
+  const safeQuery = readQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
   const includeStock =
     safeQuery.includeStock === undefined

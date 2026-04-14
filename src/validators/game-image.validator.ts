@@ -1,5 +1,11 @@
 import { AppError } from "../utils/app-error";
-import { validatePaginationQuery, validatePositiveIdParam } from "../utils/request-validator";
+import {
+  readQueryParams,
+  readRequestBody,
+  validatePaginationQuery,
+  validatePositiveIdParam,
+} from "../utils/request-validator";
+import { InputValue } from "../utils/value-types";
 
 export interface CreateGameImageInput {
   gameId: number;
@@ -18,7 +24,7 @@ export interface ListGameImagesQuery {
   gameId?: number;
 }
 
-function requireString(value: unknown, field: string): string {
+function requireString(value: InputValue, field: string): string {
   const text = String(value ?? "").trim();
   if (!text) {
     throw new AppError(400, "VALIDATION_ERROR", `${field} is required`);
@@ -30,13 +36,10 @@ export function validateGameImageIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
 
-export function validateCreateGameImageInput(body: unknown): CreateGameImageInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
-
+export function validateCreateGameImageInput(
+  body: InputValue | null | undefined,
+): CreateGameImageInput {
+  const requestBody = readRequestBody(body);
   const sortOrderValue = requestBody.sortOrder;
   const sortOrder = sortOrderValue === undefined ? 0 : Number(sortOrderValue);
 
@@ -51,17 +54,16 @@ export function validateCreateGameImageInput(body: unknown): CreateGameImageInpu
   };
 }
 
-export function validateUpdateGameImageInput(body: unknown): UpdateGameImageInput {
-  if (!body || typeof body !== "object") {
-    throw new AppError(400, "VALIDATION_ERROR", "Request body must be an object");
-  }
-
-  const requestBody = body as Record<string, unknown>;
+export function validateUpdateGameImageInput(
+  body: InputValue | null | undefined,
+): UpdateGameImageInput {
+  const requestBody = readRequestBody(body);
   const result: UpdateGameImageInput = {};
 
   if (requestBody.imageUrl !== undefined) {
     result.imageUrl = requireString(requestBody.imageUrl, "imageUrl");
   }
+
   if (requestBody.sortOrder !== undefined) {
     const sortOrder = Number(requestBody.sortOrder);
     if (!Number.isInteger(sortOrder) || sortOrder < 0) {
@@ -77,17 +79,18 @@ export function validateUpdateGameImageInput(body: unknown): UpdateGameImageInpu
   return result;
 }
 
-export function validateListGameImagesQuery(query: unknown): ListGameImagesQuery {
-  const safeQuery = query && typeof query === "object" ? (query as Record<string, unknown>) : {};
+export function validateListGameImagesQuery(
+  query: InputValue | null | undefined,
+): ListGameImagesQuery {
+  const safeQuery = readQueryParams(query);
   const pagination = validatePaginationQuery(safeQuery);
 
-  const gameIdValue = safeQuery.gameId;
-  if (gameIdValue === undefined) {
+  if (safeQuery.gameId === undefined) {
     return pagination;
   }
 
   return {
     ...pagination,
-    gameId: validatePositiveIdParam(String(gameIdValue)),
+    gameId: validatePositiveIdParam(String(safeQuery.gameId)),
   };
 }
