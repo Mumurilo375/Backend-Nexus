@@ -302,7 +302,21 @@ export async function listGames(query: ListGamesQuery) {
   });
 
   return {
-    items: result.rows.map(serializeGame),
+    items: await Promise.all(
+      result.rows.map(async (game) => {
+        const serializedGame = serializeGame(game) as JsonRecord;
+        const platformListings = await Promise.all(
+          ((serializedGame.platformListings as JsonRecord[] | undefined) ?? []).map(
+            enrichPlatformListing,
+          ),
+        );
+
+        return {
+          ...serializedGame,
+          platformListings,
+        };
+      }),
+    ),
     meta: buildPaginationMeta(query, result.count),
   };
 }
