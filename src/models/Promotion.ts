@@ -6,6 +6,7 @@ class Promotion extends Model {
   declare name: string;
   declare description: string | null;
   declare coverImageUrl: string | null;
+  declare bannerImageUrl: string | null;
   declare discountPercentage: number;
   declare startDate: Date;
   declare endDate: Date;
@@ -33,6 +34,11 @@ Promotion.init(
       type: DataTypes.TEXT,
       allowNull: true,
       field: "cover_image_url",
+    },
+    bannerImageUrl: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      field: "banner_image_url",
     },
     discountPercentage: {
       type: DataTypes.INTEGER,

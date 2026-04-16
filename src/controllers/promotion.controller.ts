@@ -23,12 +23,13 @@ function readUploadedPromotionMediaFiles(files: Request["files"]) {
 
   return {
     coverFile: uploadedFiles.coverFile?.[0] ?? null,
+    bannerFile: uploadedFiles.bannerFile?.[0] ?? null,
   };
 }
 
 async function cleanupUploadedPromotionMedia(files: Request["files"]) {
   const uploadedFiles = readUploadedPromotionMediaFiles(files);
-  await deleteTemporaryUploads([uploadedFiles.coverFile]);
+  await deleteTemporaryUploads([uploadedFiles.coverFile, uploadedFiles.bannerFile]);
 }
 
 class PromotionController {

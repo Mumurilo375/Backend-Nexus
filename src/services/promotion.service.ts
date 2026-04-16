@@ -6,7 +6,12 @@ import Platform from "../models/Platform";
 import Promotion from "../models/Promotion";
 import PromotionListing from "../models/PromotionListing";
 import { AppError } from "../utils/app-error";
-import { deleteManagedMediaList, isManagedMediaUrl, moveUploadedPromotionCover } from "../utils/media-storage";
+import {
+  deleteManagedMediaList,
+  isManagedMediaUrl,
+  moveUploadedPromotionBanner,
+  moveUploadedPromotionCover,
+} from "../utils/media-storage";
 import { buildPricing, toNumber } from "../utils/money";
 import { buildPaginationMeta, getPaginationOffset } from "../utils/pagination";
 import { countListingStockSummary } from "../utils/stock";
@@ -20,6 +25,7 @@ import {
 type JsonRecord = PlainObject;
 type UploadedPromotionMedia = {
   coverFile?: Express.Multer.File | null;
+  bannerFile?: Express.Multer.File | null;
 };
 
 const PROMOTION_INCLUDE = [
@@ -89,6 +95,7 @@ async function serializePromotion(promotion: Promotion, activeOnly = false) {
     name: String(promotionData.name ?? ""),
     description: promotionData.description ? String(promotionData.description) : null,
     coverImageUrl: promotionData.coverImageUrl ? String(promotionData.coverImageUrl) : null,
+    bannerImageUrl: promotionData.bannerImageUrl ? String(promotionData.bannerImageUrl) : null,
     discountPercentage,
     startDate: promotionData.startDate,
     endDate: promotionData.endDate,
@@ -101,6 +108,14 @@ async function serializePromotion(promotion: Promotion, activeOnly = false) {
 }
 
 function getReplacedCoverMediaUrls(currentUrl: string | null | undefined, nextUrl: string | null) {
+  if (!currentUrl || currentUrl === nextUrl || !isManagedMediaUrl(currentUrl)) {
+    return [];
+  }
+
+  return [currentUrl];
+}
+
+function getReplacedBannerMediaUrls(currentUrl: string | null | undefined, nextUrl: string | null) {
   if (!currentUrl || currentUrl === nextUrl || !isManagedMediaUrl(currentUrl)) {
     return [];
   }
@@ -136,6 +151,36 @@ async function resolvePromotionCoverImageUrl(options: {
   }
 
   return currentCoverImageUrl ?? null;
+}
+
+async function resolvePromotionBannerImageUrl(options: {
+  promotionId: number;
+  currentBannerImageUrl?: string | null;
+  nextBannerImageUrl?: string | null;
+  bannerFile?: Express.Multer.File | null;
+  createdMediaUrls: string[];
+}) {
+  const {
+    promotionId,
+    currentBannerImageUrl,
+    nextBannerImageUrl,
+    bannerFile,
+    createdMediaUrls,
+  } = options;
+
+  if (bannerFile) {
+    const uploadedBannerImageUrl = await moveUploadedPromotionBanner(bannerFile, {
+      promotionId,
+    });
+    createdMediaUrls.push(uploadedBannerImageUrl);
+    return uploadedBannerImageUrl;
+  }
+
+  if (nextBannerImageUrl !== undefined) {
+    return nextBannerImageUrl;
+  }
+
+  return currentBannerImageUrl ?? null;
 }
 
 async function findPromotionOrFail(
@@ -206,6 +251,7 @@ export async function createPromotion(
         {
           ...input,
           coverImageUrl: input.coverImageUrl ?? null,
+          bannerImageUrl: input.bannerImageUrl ?? null,
         },
         { transaction },
       );
@@ -217,9 +263,19 @@ export async function createPromotion(
         coverFile: uploadedPromotionMedia.coverFile,
         createdMediaUrls,
       });
+      const bannerImageUrl = await resolvePromotionBannerImageUrl({
+        promotionId: promotion.id,
+        currentBannerImageUrl: null,
+        nextBannerImageUrl: input.bannerImageUrl ?? null,
+        bannerFile: uploadedPromotionMedia.bannerFile,
+        createdMediaUrls,
+      });
 
-      if (coverImageUrl !== promotion.coverImageUrl) {
-        await promotion.update({ coverImageUrl }, { transaction });
+      if (
+        coverImageUrl !== promotion.coverImageUrl ||
+        bannerImageUrl !== promotion.bannerImageUrl
+      ) {
+        await promotion.update({ coverImageUrl, bannerImageUrl }, { transaction });
       }
 
       return promotion.id;
@@ -243,6 +299,7 @@ export async function updatePromotion(
     const mediaUrlsToDelete = await sequelize.transaction(async (transaction) => {
       const promotion = await findPromotionOrFail(id, false, transaction);
       const currentCoverImageUrl = promotion.coverImageUrl;
+      const currentBannerImageUrl = promotion.bannerImageUrl;
       const nextCoverImageUrl = await resolvePromotionCoverImageUrl({
         promotionId: promotion.id,
         currentCoverImageUrl,
@@ -250,16 +307,27 @@ export async function updatePromotion(
         coverFile: uploadedPromotionMedia.coverFile,
         createdMediaUrls,
       });
+      const nextBannerImageUrl = await resolvePromotionBannerImageUrl({
+        promotionId: promotion.id,
+        currentBannerImageUrl,
+        nextBannerImageUrl: input.bannerImageUrl,
+        bannerFile: uploadedPromotionMedia.bannerFile,
+        createdMediaUrls,
+      });
 
       await promotion.update(
         {
           ...input,
           coverImageUrl: nextCoverImageUrl,
+          bannerImageUrl: nextBannerImageUrl,
         },
         { transaction },
       );
 
-      return getReplacedCoverMediaUrls(currentCoverImageUrl, nextCoverImageUrl);
+      return [
+        ...getReplacedCoverMediaUrls(currentCoverImageUrl, nextCoverImageUrl),
+        ...getReplacedBannerMediaUrls(currentBannerImageUrl, nextBannerImageUrl),
+      ];
     });
 
     await deleteManagedMediaList(mediaUrlsToDelete);
@@ -276,9 +344,13 @@ export async function deletePromotion(id: number) {
 
     const promotion = await findPromotionOrFail(id, false, transaction);
     const coverImageUrl = promotion.coverImageUrl;
+    const bannerImageUrl = promotion.bannerImageUrl;
     await promotion.destroy({ transaction });
 
-    return coverImageUrl && isManagedMediaUrl(coverImageUrl) ? [coverImageUrl] : [];
+    return [
+      ...(coverImageUrl && isManagedMediaUrl(coverImageUrl) ? [coverImageUrl] : []),
+      ...(bannerImageUrl && isManagedMediaUrl(bannerImageUrl) ? [bannerImageUrl] : []),
+    ];
   });
 
   await deleteManagedMediaList(mediaUrlsToDelete);

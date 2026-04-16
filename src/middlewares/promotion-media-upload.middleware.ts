@@ -35,14 +35,16 @@ export const promotionMediaUpload = multer({
   fileFilter: imageOnlyFilter,
   limits: {
     fileSize: 10 * 1024 * 1024,
-    files: 1,
+    files: 2,
   },
 });
 
 export const promotionMediaFields = promotionMediaUpload.fields([
   { name: "coverFile", maxCount: 1 },
+  { name: "bannerFile", maxCount: 1 },
 ]);
 
 export type UploadedPromotionMediaFiles = {
   coverFile?: Express.Multer.File[];
+  bannerFile?: Express.Multer.File[];
 };

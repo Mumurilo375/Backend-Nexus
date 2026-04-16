@@ -11,6 +11,7 @@ export interface CreatePromotionInput {
   name: string;
   description?: string | null;
   coverImageUrl?: string | null;
+  bannerImageUrl?: string | null;
   discountPercentage: number;
   startDate: string;
   endDate: string;
@@ -21,6 +22,7 @@ export interface UpdatePromotionInput {
   name?: string;
   description?: string | null;
   coverImageUrl?: string | null;
+  bannerImageUrl?: string | null;
   discountPercentage?: number;
   startDate?: string;
   endDate?: string;
@@ -115,6 +117,7 @@ export function validateCreatePromotionInput(
     name: requireString(requestBody.name, "name"),
     description: parseOptionalText(requestBody.description),
     coverImageUrl: parseOptionalText(requestBody.coverImageUrl),
+    bannerImageUrl: parseOptionalText(requestBody.bannerImageUrl),
     discountPercentage: validatePercentage(requestBody.discountPercentage),
     startDate: validateDate(requestBody.startDate, "startDate"),
     endDate: validateDate(requestBody.endDate, "endDate"),
@@ -139,6 +142,9 @@ export function validateUpdatePromotionInput(
   }
   if (requestBody.coverImageUrl !== undefined) {
     result.coverImageUrl = parseOptionalText(requestBody.coverImageUrl);
+  }
+  if (requestBody.bannerImageUrl !== undefined) {
+    result.bannerImageUrl = parseOptionalText(requestBody.bannerImageUrl);
   }
   if (requestBody.discountPercentage !== undefined) {
     result.discountPercentage = validatePercentage(requestBody.discountPercentage);

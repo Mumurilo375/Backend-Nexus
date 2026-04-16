@@ -192,6 +192,25 @@ export async function moveUploadedPromotionCover(
   return createManagedMediaUrl(path.relative(storageRoot, targetPath));
 }
 
+export async function moveUploadedPromotionBanner(
+  file: Express.Multer.File,
+  options: { promotionId: number },
+) {
+  const targetDirectory = path.join(
+    storageRoot,
+    "offers",
+    String(options.promotionId),
+    "banner",
+  );
+
+  await fs.mkdir(targetDirectory, { recursive: true });
+
+  const targetPath = path.join(targetDirectory, createUniqueFileName(file.originalname));
+  await fs.rename(file.path, targetPath);
+
+  return createManagedMediaUrl(path.relative(storageRoot, targetPath));
+}
+
 export async function ensureManagedLegacyMedia(
   sourceRelativePath: string,
   targetRelativePath: string,
