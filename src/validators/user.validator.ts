@@ -1,4 +1,5 @@
 import { AppError } from "../utils/app-error";
+import { isValidCpf, normalizeCpf } from "../utils/cpf";
 import {
   readQueryParams,
   readRequestBody,
@@ -49,13 +50,13 @@ function validateEmail(email: string): string {
 }
 
 function validateCpf(raw: string): string {
-  const cpf = raw.replace(/\D/g, "");
+  const cpf = normalizeCpf(raw);
 
   if (cpf.length !== 11) {
     throw new AppError(400, "VALIDATION_ERROR", "CPF must have 11 digits");
   }
 
-  if (/^(\d)\1{10}$/.test(cpf)) {
+  if (!isValidCpf(cpf)) {
     throw new AppError(400, "VALIDATION_ERROR", "Invalid CPF");
   }
 
