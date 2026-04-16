@@ -8,6 +8,8 @@ import {
   unlinkListingFromPromotion,
   updatePromotion,
 } from "../services/promotion.service";
+import { UploadedPromotionMediaFiles } from "../middlewares/promotion-media-upload.middleware";
+import { deleteTemporaryUploads } from "../utils/media-storage";
 import {
   validateCreatePromotionInput,
   validateListPromotionsQuery,
@@ -15,6 +17,19 @@ import {
   validateUpdatePromotionInput,
 } from "../validators/promotion.validator";
 import { validateListingIdParam } from "../validators/listing.validator";
+
+function readUploadedPromotionMediaFiles(files: Request["files"]) {
+  const uploadedFiles = (files as UploadedPromotionMediaFiles | undefined) ?? {};
+
+  return {
+    coverFile: uploadedFiles.coverFile?.[0] ?? null,
+  };
+}
+
+async function cleanupUploadedPromotionMedia(files: Request["files"]) {
+  const uploadedFiles = readUploadedPromotionMediaFiles(files);
+  await deleteTemporaryUploads([uploadedFiles.coverFile]);
+}
 
 class PromotionController {
   static async list(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -40,9 +55,11 @@ class PromotionController {
   static async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const input = validateCreatePromotionInput(req.body);
-      const promotion = await createPromotion(input);
+      const promotion = await createPromotion(input, readUploadedPromotionMediaFiles(req.files));
+      await cleanupUploadedPromotionMedia(req.files);
       res.status(201).json(promotion);
     } catch (error) {
+      await cleanupUploadedPromotionMedia(req.files);
       next(error);
     }
   }
@@ -51,9 +68,15 @@ class PromotionController {
     try {
       const promotionId = validatePromotionIdParam(req.params.id as string);
       const input = validateUpdatePromotionInput(req.body);
-      const promotion = await updatePromotion(promotionId, input);
+      const promotion = await updatePromotion(
+        promotionId,
+        input,
+        readUploadedPromotionMediaFiles(req.files),
+      );
+      await cleanupUploadedPromotionMedia(req.files);
       res.status(200).json(promotion);
     } catch (error) {
+      await cleanupUploadedPromotionMedia(req.files);
       next(error);
     }
   }

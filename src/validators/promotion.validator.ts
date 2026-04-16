@@ -10,6 +10,7 @@ import { InputValue } from "../utils/value-types";
 export interface CreatePromotionInput {
   name: string;
   description?: string | null;
+  coverImageUrl?: string | null;
   discountPercentage: number;
   startDate: string;
   endDate: string;
@@ -19,6 +20,7 @@ export interface CreatePromotionInput {
 export interface UpdatePromotionInput {
   name?: string;
   description?: string | null;
+  coverImageUrl?: string | null;
   discountPercentage?: number;
   startDate?: string;
   endDate?: string;
@@ -73,6 +75,33 @@ function validateBooleanQuery(value: InputValue, fieldName: string): boolean {
   throw new AppError(400, "VALIDATION_ERROR", `${fieldName} must be a boolean`);
 }
 
+function parseBooleanInput(value: InputValue, fieldName: string): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  const normalizedValue = String(value ?? "").trim().toLowerCase();
+
+  if (normalizedValue === "true" || normalizedValue === "1") {
+    return true;
+  }
+
+  if (normalizedValue === "false" || normalizedValue === "0") {
+    return false;
+  }
+
+  throw new AppError(400, "VALIDATION_ERROR", `${fieldName} must be a boolean`);
+}
+
+function parseOptionalText(value: InputValue) {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
 export function validatePromotionIdParam(id: string): number {
   return validatePositiveIdParam(id);
 }
@@ -84,11 +113,15 @@ export function validateCreatePromotionInput(
 
   return {
     name: requireString(requestBody.name, "name"),
-    description: requestBody.description ? String(requestBody.description) : null,
+    description: parseOptionalText(requestBody.description),
+    coverImageUrl: parseOptionalText(requestBody.coverImageUrl),
     discountPercentage: validatePercentage(requestBody.discountPercentage),
     startDate: validateDate(requestBody.startDate, "startDate"),
     endDate: validateDate(requestBody.endDate, "endDate"),
-    isActive: requestBody.isActive === undefined ? true : Boolean(requestBody.isActive),
+    isActive:
+      requestBody.isActive === undefined
+        ? true
+        : parseBooleanInput(requestBody.isActive, "isActive"),
   };
 }
 
@@ -102,7 +135,10 @@ export function validateUpdatePromotionInput(
     result.name = requireString(requestBody.name, "name");
   }
   if (requestBody.description !== undefined) {
-    result.description = requestBody.description ? String(requestBody.description) : null;
+    result.description = parseOptionalText(requestBody.description);
+  }
+  if (requestBody.coverImageUrl !== undefined) {
+    result.coverImageUrl = parseOptionalText(requestBody.coverImageUrl);
   }
   if (requestBody.discountPercentage !== undefined) {
     result.discountPercentage = validatePercentage(requestBody.discountPercentage);
@@ -114,10 +150,7 @@ export function validateUpdatePromotionInput(
     result.endDate = validateDate(requestBody.endDate, "endDate");
   }
   if (requestBody.isActive !== undefined) {
-    if (typeof requestBody.isActive !== "boolean") {
-      throw new AppError(400, "VALIDATION_ERROR", "isActive must be a boolean");
-    }
-    result.isActive = requestBody.isActive;
+    result.isActive = parseBooleanInput(requestBody.isActive, "isActive");
   }
 
   if (Object.keys(result).length === 0) {

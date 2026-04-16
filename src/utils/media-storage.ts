@@ -73,6 +73,7 @@ export async function ensureMediaStorage() {
   await Promise.all([
     fs.mkdir(temporaryUploadRoot, { recursive: true }),
     fs.mkdir(path.join(storageRoot, "games"), { recursive: true }),
+    fs.mkdir(path.join(storageRoot, "offers"), { recursive: true }),
     fs.mkdir(path.join(storageRoot, "users"), { recursive: true }),
     fs.mkdir(path.join(storageRoot, "legacy"), { recursive: true }),
   ]);
@@ -162,6 +163,25 @@ export async function moveUploadedUserAvatar(
     "users",
     String(options.userId),
     "avatar",
+  );
+
+  await fs.mkdir(targetDirectory, { recursive: true });
+
+  const targetPath = path.join(targetDirectory, createUniqueFileName(file.originalname));
+  await fs.rename(file.path, targetPath);
+
+  return createManagedMediaUrl(path.relative(storageRoot, targetPath));
+}
+
+export async function moveUploadedPromotionCover(
+  file: Express.Multer.File,
+  options: { promotionId: number },
+) {
+  const targetDirectory = path.join(
+    storageRoot,
+    "offers",
+    String(options.promotionId),
+    "cover",
   );
 
   await fs.mkdir(targetDirectory, { recursive: true });
