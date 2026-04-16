@@ -43,12 +43,15 @@ describe("chave de jogo", () => {
     );
   });
 
-  it("valida query com listingId", () => {
+  it("aceita query com paginação e listingId", () => {
     expect(validateListGameKeysQuery({ page: 2, limit: 5, listingId: 9 })).toEqual({
       page: 2,
       limit: 5,
       listingId: 9,
     });
+  });
+
+  it("usa paginação padrão quando query está vazia", () => {
     expect(validateListGameKeysQuery({})).toEqual({ page: 1, limit: 20 });
   });
 

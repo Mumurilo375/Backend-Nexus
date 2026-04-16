@@ -52,6 +52,18 @@ describe("autenticação", () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  it("bloqueia header malformado", async () => {
+    const req = { headers: { authorization: "Token abc" } };
+    const res = makeResponse();
+    const next = jest.fn();
+
+    await authMiddleware(req as never, res as never, next as never);
+
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ code: "UNAUTHORIZED", message: "Token not provided" });
+    expect(next).not.toHaveBeenCalled();
+  });
+
   it("bloqueia token inválido", async () => {
     const req = { headers: { authorization: "Bearer token-invalido" } };
     const res = makeResponse();

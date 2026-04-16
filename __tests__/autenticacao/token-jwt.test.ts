@@ -14,6 +14,17 @@ describe("token JWT", () => {
     expect(payload).toEqual({ id: 1, email: "user@email.com", iat: expect.any(Number), exp: expect.any(Number) });
   });
 
+  it("rejeita token quando o segredo muda", () => {
+    const token = generateToken({ id: 1, email: "user@email.com" });
+    process.env.JWT_SECRET = "outro-segredo";
+
+    expect(() => verifyToken(token)).toThrow();
+  });
+
+  it("rejeita token vazio", () => {
+    expect(() => verifyToken("")).toThrow();
+  });
+
   it("rejeita sem JWT_SECRET", () => {
     delete process.env.JWT_SECRET;
 

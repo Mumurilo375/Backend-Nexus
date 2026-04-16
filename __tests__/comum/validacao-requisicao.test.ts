@@ -55,8 +55,11 @@ describe("validação de requisição", () => {
       expect(validatePaginationQuery({})).toEqual({ page: 1, limit: 20 });
     });
 
-    it("corrige valores fora do limite", () => {
+    it("corrige page inválida para 1", () => {
       expect(validatePaginationQuery({ page: -1, limit: 0 })).toEqual({ page: 1, limit: 20 });
+    });
+
+    it("corrige limit acima do máximo para 20", () => {
       expect(validatePaginationQuery({ page: 2, limit: 500 })).toEqual({ page: 2, limit: 20 });
     });
 

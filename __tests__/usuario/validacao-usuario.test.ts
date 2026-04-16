@@ -63,6 +63,30 @@ describe("usuário", () => {
         }),
       ).toThrow("Password must have at least 8 characters");
     });
+
+    it("rejeita username curto", () => {
+      expect(() =>
+        validateCreateUserInput({
+          email: "a@a.com",
+          username: "ab",
+          password: "SenhaForte123!",
+          fullName: "Nome",
+          cpf: "51603871888",
+        }),
+      ).toThrow("username must have 3 to 50 characters");
+    });
+
+    it("rejeita username longo", () => {
+      expect(() =>
+        validateCreateUserInput({
+          email: "a@a.com",
+          username: "a".repeat(51),
+          password: "SenhaForte123!",
+          fullName: "Nome",
+          cpf: "51603871888",
+        }),
+      ).toThrow("username must have 3 to 50 characters");
+    });
   });
 
   describe("edição", () => {
@@ -101,11 +125,24 @@ describe("usuário", () => {
         }),
       ).toThrow("password is required");
     });
+
+    it("rejeita username fora do tamanho no update", () => {
+      expect(() =>
+        validateUpdateUserInput({
+          username: "a".repeat(51),
+          fullName: "Nome",
+          cpf: "51603871888",
+        }),
+      ).toThrow("username must have 3 to 50 characters");
+    });
   });
 
   describe("consulta e id", () => {
-    it("aceita paginação", () => {
+    it("aceita paginação informada", () => {
       expect(validateListUsersQuery({ page: 2, limit: 15 })).toEqual({ page: 2, limit: 15 });
+    });
+
+    it("normaliza paginação inválida para padrão", () => {
       expect(validateListUsersQuery({ page: -5, limit: 200 })).toEqual({ page: 1, limit: 20 });
     });
 
